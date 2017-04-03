@@ -1,15 +1,4 @@
 //////////////////////////////////////////////////////////////////////////
-// JAM FILTER STATUS
-//////////////////////////////////////////////////////////////////////////
-localparam FILTER_NO_MATCH      = 0;
-localparam FILTER_MATCH_PASS    = 1;
-localparam FILTER_MATCH_JAM     = 2;
-localparam FILTER_MATCH_JAM_ACK = 3;
-localparam FILTER_RATIO_PASS    = 4;
-localparam FILTER_RATIO_JAM     = 5;
-
-
-//////////////////////////////////////////////////////////////////////////
 // PI DEFINITION
 //////////////////////////////////////////////////////////////////////////
 // localparam PI =             3217;    //  = PI*(1<<`ATAN_LUT_SCALE_SHIFT)
@@ -24,9 +13,6 @@ localparam PI_3_4 =         PI_2 + PI_4;
 //////////////////////////////////////////////////////////////////////////
 // USER REG DEFINITION
 //////////////////////////////////////////////////////////////////////////
-localparam SR_JAMMER_ENABLE =                  1;
-localparam SR_JAMMER_RESET =                   2;
-
 // power trigger
 localparam SR_POWER_THRES   =               3;
 localparam SR_POWER_WINDOW =                4;
@@ -34,15 +20,6 @@ localparam SR_SKIP_SAMPLE =                 5;
 
 // sync short
 localparam SR_MIN_PLATEAU =                 6;
-
-// filter
-localparam SR_RATE_FILTER =                 7;
-localparam SR_LEN_FILTER =                  8;
-localparam SR_HEADER_FILTER =               9;
-localparam SR_HEADER_LEN =                  10;
-localparam SR_JAM_POLICY =                  11;
-
-localparam SR_JAM_SIGNAL =                  12;
 
 //////////////////////////////////////////////////////////////////////////
 // DOT11 STATE MACHINE

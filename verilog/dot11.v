@@ -5,6 +5,7 @@ module dot11 (
     input enable,
     input reset,
 
+    // setting registers
     input set_stb,
     input [7:0] set_addr,
     input [31:0] set_data,

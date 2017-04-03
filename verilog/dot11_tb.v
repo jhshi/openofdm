@@ -111,11 +111,6 @@ initial begin
     set_addr = SR_SKIP_SAMPLE;
     set_data = 0;
 
-    # 20
-    // jam filter len
-    set_addr = SR_HEADER_LEN;
-    set_data = 32;
-
     # 20 set_stb = 0;
 
     bb_sample_fd = $fopen("./sim_out/sample_in.txt", "w");

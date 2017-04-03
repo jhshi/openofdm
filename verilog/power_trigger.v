@@ -4,12 +4,12 @@ module power_trigger
     input enable,
     input reset,
 
-    input [31:0] sample_in,
-    input sample_in_strobe,
-
     input set_stb,
     input [7:0] set_addr,
     input [31:0] set_data,
+
+    input [31:0] sample_in,
+    input sample_in_strobe,
 
     output reg trigger
 );

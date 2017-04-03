@@ -10,6 +10,9 @@ Welcome to OpenOFDM's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   power
+   freq_offset
+
 
 
 Indices and tables

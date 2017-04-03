@@ -1,0 +1,3 @@
+numpy==1.11.2
+wltrace==1.1.1
+Sphinx==1.5.5

@@ -16,7 +16,7 @@ SRC = $(wildcard *.v) $(wildcard *.mif) $(wildcard *.coe)
 MODULE_LIST = dot11_modules.list
 
 TESTBENCH = dot11_tb.v
-COMPILER_OUT = dot11.out			#COMPILER OUTPUT
+COMPILER_OUT = dot11.out
 SIM_OUT = dot11.vcd
 
 ###############################################################################

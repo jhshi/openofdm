@@ -32,11 +32,17 @@ COMPILER_FLAGS = -v -c $(MODULE_LIST) -o $(COMPILER_OUT) -DDEBUG_PRINT
 SIMULATOR_FLAGS = -v -n
 ###############################################################################
 
+all: compile simulate
+
 #MAKE DIRECTIVES
-compile: $(TESTBENCH) $(SRC)
+compile: $(COMPILER_OUT)
+
+simulate: $(COMPILER_OUT) $(SIM_OUT)
+
+$(COMPILER_OUT): $(TESTBENCH) $(SRC)
 	$(COMPILER) $(COMPILER_FLAGS) $(TESTBENCH)
 
-simulate: compile
+$(SIM_OUT): $(COMPILER_OUT)
 	$(SIMULATOR) $(SIMULATOR_FLAGS) $(COMPILER_OUT) 
 
 clean:

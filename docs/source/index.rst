@@ -10,8 +10,10 @@ Welcome to OpenOFDM's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   power
+   detection
    freq_offset
+   setting
+   verilog
 
 
 

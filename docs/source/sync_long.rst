@@ -96,6 +96,7 @@ a portion instead of all the LTS samples.
 matched filter with different size. It can be seen that using the first 16
 samples of LTS is good enough to exhibit two narrow spikes. Therefore, |project|
 use matched filter of size 16 for symbol alignment. And the first sample of the
-long preamble starts at :math:`N_{16}-57`, where :math:`N_{16}` is the index of the
-first spike when the filter size is 16 (:math:`N_{32}-49` when filter size is
+long preamble starts at :math:`N_{16}-57`, where :math:`N_{16}` is the index of
+the first spike when the filter size is 16 (for completeness, it is
+:math:`N_{32}-49` when filter size is
 32).

@@ -80,7 +80,7 @@ integer signal_fd;
 integer byte_out_fd;
 
 `ifndef SAMPLE_FILE
-`define SAMPLE_FILE "../testing_inputs/conducted/dot11a_6mbps_qos_data_e4_90_7e_15_2a_16_e8_de_27_90_6e_42.txt"
+`define SAMPLE_FILE "../testing_inputs/conducted/dot11a_24mbps_qos_data_e4_90_7e_15_2a_16_e8_de_27_90_6e_42.txt"
 `endif
 
 `ifndef NUM_SAMPLE

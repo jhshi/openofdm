@@ -460,10 +460,11 @@ class Decoder(object):
         Returns the index of the first sample of STS
         None if no packet was detected.
         """
+        lts = LONG_PREAMBLE[64:64+64]
         peaks = np.array([abs(c) for c in np.convolve(
-            samples, LONG_PREAMBLE[32:96], mode='same')]).argsort()[-2:]
-        if (max(peaks) - min(peaks) == 64) and (min(peaks) - 64 - 160) > 0:
-            return min(peaks) - 64 - 160
+            samples, lts, mode='same')]).argsort()[-2:]
+        if (max(peaks) - min(peaks) == 64) and (min(peaks) - 33 - 160) > 0:
+            return min(peaks) - 33 - 160
         else:
             return None
 

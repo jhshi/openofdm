@@ -42,34 +42,63 @@ Phase Estimation
 **Module**:: ``phase.v``
 
 When correcting the frequency offset, we need to estimate the phase of a complex
-number, which can be calculated using the :math:`arctan` function. 
+number. The *right* way of doing this is probably using the `CORDIC
+<https://dspguru.com/dsp/faqs/cordic/>`_ algorithm. In OpenOFDM, we use look up
+table.
+
+More specifically, we calculate the phase using the :math:`arctan` function. 
 
 
 .. math::
 
-    \angle(\langle I, Q\rangle) = arctan(\frac{Q}{I})
+    \theta = \angle(\langle I, Q\rangle) = arctan(\frac{Q}{I})
 
 The overall steps are:
 
-1. Project the complex number to the :math:`[0, \pi/4]` range.
+1. Project the complex number to the :math:`[0, \pi/4]` range, so that the
+   :math:`tan(\theta)` range is :math:`[0, 1]`.
 #. Calculate :math:`arctan` (division required)
 #. Looking up the quantized :math:`arctan` table
 #. Project the phase back to the :math:`[-\pi, \pi)` range
 
 Here we use both quantization and look up table techniques.
 
-The first step can be achieved by this transformation:
+Step 1 can be achieved by this transformation:
 
 .. math::
 
     \langle I, Q\rangle \rightarrow \langle max(|I|, |Q|), min(|I|, |Q|)\rangle
 
 
-The *right* way to calculate :math:`arctan` is probably using the `CORDIC
-<https://dspguru.com/dsp/faqs/cordic/>`_ algorithm. However, this function is
-implemented using look up tables in OpenOFDM.
+In the lookup table used in step 3, we use :math:`int(tan(\theta)*256)` as the
+key, which effectively maps the :math:`[0.0, 1.0]` range of :math:`tan` function
+to the integer range of :math:`[0, 256]`. In other words, we quantize the
+:math:`[0, \pi/4]` quadrant into 256 slices.
 
-In the table, we use :math:`int(tan(\angle)*256)` as the key, which effective
-map the :math:`[0.0, 1.0]` range of :math:`tan` function to the integer range of
-:math:`[0, 256]`. In other words, we quantize the :math:`[0, \pi/4]` quadrant
-into 256 slices.
+This :math:`arctan` look up table is generated using the
+``scripts/gen_atan_lut.py`` script. The core logic is as follows:
+
+.. code-block:: python
+    :linenos:
+
+    SIZE = 2**8
+    SCALE = SIZE*2
+    data = []
+    for i in range(SIZE):
+        key = float(i)/SIZE
+        val = int(round(math.atan(key)*SCALE))
+        data.append(val)
+
+
+Note that we also scale up the :math:`arctan` values to distinguish adjacent
+values. This also systematically scale up :math:`\pi` in OpenOFDM. In fact,
+:math:`\pi` is defined as :math:`1608=int(\pi*512)` in
+``verilog/common_params.v``.
+
+The generated lookup table is stored in the ``verilog/atan_lut.coe``
+file (see `COE File Syntax
+<https://www.xilinx.com/support/documentation/sw_manuals/xilinx11/cgn_r_coe_file_syntax.htm>`_).
+Refer to `this guide
+<https://www.xilinx.com/itp/xilinx10/isehelp/cgn_p_memed_single_block.htm>`_ on
+how to create a look up table in Xilinx ISE. The generated module is stored in
+``verilog/coregen/atan_lut.v``.

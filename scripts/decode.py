@@ -225,6 +225,7 @@ class ChannelEstimator(object):
             prod_sum += prod
         beta = cmath.phase(prod_sum)
         print "[PILOT OFFSET] %f (%d)" % (beta, int(beta*PHASE_SCALE))
+        # beta = 0
         carriers = []
         for c in self.subcarriers:
             if c in PILOT_SUBCARRIES:
@@ -269,8 +270,8 @@ class ChannelEstimator(object):
 
         coarse_offset = cmath.phase(sum([sts[i]*sts[i+16].conjugate()
                                          for i in range(len(sts)-16)]))/16
-        coarse_offset = int(coarse_offset*256)/256.0
         print '[COARSE OFFSET] %f (%d)' % (coarse_offset, int(coarse_offset*PHASE_SCALE))
+        # coarse_offset = 0
 
         # coarse correction
         lts = [c*cmath.exp(complex(0, n*coarse_offset))
@@ -279,7 +280,7 @@ class ChannelEstimator(object):
         fine_offset = cmath.phase(sum([lts[i]*lts[i+64].conjugate()
                                        for i in range(len(lts)-64)]))/64
         print '[FINE OFFSET] %f (%d)' % (fine_offset, int(fine_offset*PHASE_SCALE))
-        fine_offset = 0
+        # fine_offset = 0
 
         self.lts_samples = [c*cmath.exp(complex(0, n*fine_offset))
                for n, c in enumerate(lts)]
@@ -430,6 +431,7 @@ class Decoder(object):
     def decode_next(self, *args, **kwargs):
         trigger = False
         samples = []
+        glbl_index = 0
         while True:
             chunk = array.array('h', self.fh.read(self.window))
             chunk = [complex(i, q) for i, q in zip(chunk[::2], chunk[1::2])]
@@ -437,6 +439,7 @@ class Decoder(object):
                 trigger = True
                 samples = []
                 print "Power trigger at %d" % (self.count)
+                glbl_index = self.count
 
             self.count += self.window
 
@@ -448,6 +451,8 @@ class Decoder(object):
                 if start is None:
                     trigger = False
                 else:
+                    print "Decoding packet starting from sample %d" %\
+                        (glbl_index + start)
                     return self.decode(samples[start:], *args, **kwargs)
 
     def find_pkt(self, samples):

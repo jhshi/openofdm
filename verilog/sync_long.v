@@ -265,8 +265,8 @@ always @(posedge clock) begin
                         num_sample <= 0;
                         mult_strobe <= 0;
                         sum_stb <= 0;
-                        in_raddr <= addr1 - 15;
-                        num_input_consumed <= addr1 - 15;
+                        in_raddr <= addr1 - 16;
+                        num_input_consumed <= addr1 - 16;
                         in_offset <= 0;
                         num_ofdm_symbol <= 0;
                         phase_correction <= 0;

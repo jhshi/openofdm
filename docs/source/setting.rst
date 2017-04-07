@@ -6,7 +6,7 @@ Setting Registers
 - **Output**: ``out``, ``changed``
 
 To enable dynamic configuration of decoding parameters at runtime, the USRP N210
-provides the setting register mechanism. Most modules in OpenOFDM have three
+provides the setting register mechanism. Most modules in |project| have three
 common inputs for such purpose:
 
  - ``set_stb (1)``: asserts high when the setting data is valid
@@ -14,9 +14,9 @@ common inputs for such purpose:
  - ``set_data (32)``: the register value
 
 
-Here is a list of setting registers in OpenOFDM.
+Here is a list of setting registers in |project|.
 
-.. table:: List of Setting Registers in OpenOFDM.
+.. table:: List of Setting Registers in |project|.
     :align: center
 
     +-----------------+------+-----------------+-----------+---------------+---------------------------------------------------------------+

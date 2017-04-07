@@ -158,9 +158,20 @@ texinfo_documents = [
 ]
 
 
-
-
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'https://docs.python.org/': None}
 
+# =============================================================
+# Custom configurations
+# =============================================================
+#
+# Enable figure numbering
 numfig = True
+
+# global macros
+rst_prolog = """
+.. |project| replace:: OpenOFDM
+.. |us| replace:: :math:`\mu s`
+"""
+
+math_number_all = True

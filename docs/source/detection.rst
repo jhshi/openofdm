@@ -12,7 +12,7 @@ for coarse frequency offset correction , which will be discussed separately in
 Power Trigger
 -------------
 
-- **Module**: ``power_trigger.v``
+- **Module**: :file:`power_trigger.v`
 - **Input**: ``sample_in`` (16B I + 16B Q), ``sample_in_strobe`` (1B)
 - **Output**: ``trigger`` (1B)
 - **Setting Registers**: ``SR_POWER_THRES``, ``SR_POWER_WINDOW``,
@@ -24,7 +24,7 @@ we are trying to detect short preamble from "meaningful" signals. One example of
 "un-meaningful" signal is constant power levels, whose auto correlation metric
 is also very high (nearly 1) but obviously does not represent packet beginning.
 
-The first module in the pipeline is the ``power_trigger.v``. It takes the I/Q
+The first module in the pipeline is the :file:`power_trigger.v`. It takes the I/Q
 samples as input and asserts the ``trigger`` signal during a potential packet
 activity. Optionally, it can be configured to skip the first certain number of
 samples before detecting a power trigger. This is useful to skip the spurious
@@ -39,7 +39,7 @@ continuous samples.
 Short Preamble Detection
 ------------------------
 
-- **Module**: ``sync_short.v``
+- **Module**: :file:`sync_short.v`
 - **Input**: ``sample_in`` (16B I + 16B Q), ``sample_in_strobe`` (1B)
 - **Output**: ``short_preamble_detected`` (1B)
 - **Setting Registers**: ``SR_MIN_PLATEAU``
@@ -73,6 +73,21 @@ preamble can be declared.
     :align: center
 
     Auto Correlation of the Short Preamble samples (N=48).
+
+To plot :numref:`fig_corr`, load the samples (see :ref:`sec_sample`), then:
+
+.. code-block:: python
+
+    from matplotlib import pyplot as plt
+
+    fig, ax = plt.subplots(nrows=2, ncols=1, sharex=True)
+    ax[0].plot([s.real for s in samples[:500]], '-bo')
+    ax[1].plot([abs(sum([samples[i+j]*samples[i+j+16].conjugate()
+        for j in range(0, 48)]))/
+        sum([abs(samples[i+j])**2 for j in range(0, 48)])
+        for i in range(0, 500)], '-ro')
+    plt.show()
+
 
 :numref:`fig_corr` shows the auto correlation value of the samples in
 :numref:`fig_short_preamble`. We can see that the correlation value is almost 1

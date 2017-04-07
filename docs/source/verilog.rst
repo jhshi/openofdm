@@ -3,13 +3,13 @@ Verilog Hacks
 
 Because of the limited capability of FPGA computation, compromises often need to
 made in the actual Verilog implementation. The most used techniques include
-quantization and look up table. In OpenOFDM, these approximations are used.
+quantization and look up table. In |project|, these approximations are used.
 
 
 Magnitude Estimation
 --------------------
 
-**Module**: ``complex_to_mag.v``
+**Module**: :file:`complex_to_mag.v`
 
 In the ``sync_short`` module, we need to calculate the magnitude of the
 ``prod_avg``, whose real and imagine part are both 32-bits. To avoid 32-bit
@@ -39,11 +39,11 @@ magnitude is calculated.
 Phase Estimation
 ----------------
 
-**Module**:: ``phase.v``
+**Module**:: :file:`phase.v`
 
 When correcting the frequency offset, we need to estimate the phase of a complex
 number. The *right* way of doing this is probably using the `CORDIC
-<https://dspguru.com/dsp/faqs/cordic/>`_ algorithm. In OpenOFDM, we use look up
+<https://dspguru.com/dsp/faqs/cordic/>`_ algorithm. In |project|, we use look up
 table.
 
 More specifically, we calculate the phase using the :math:`arctan` function. 
@@ -91,9 +91,9 @@ This :math:`arctan` look up table is generated using the
 
 
 Note that we also scale up the :math:`arctan` values to distinguish adjacent
-values. This also systematically scale up :math:`\pi` in OpenOFDM. In fact,
+values. This also systematically scale up :math:`\pi` in |project|. In fact,
 :math:`\pi` is defined as :math:`1608=int(\pi*512)` in
-``verilog/common_params.v``.
+:file:`verilog/common_params.v`.
 
 The generated lookup table is stored in the ``verilog/atan_lut.coe``
 file (see `COE File Syntax
@@ -101,4 +101,4 @@ file (see `COE File Syntax
 Refer to `this guide
 <https://www.xilinx.com/itp/xilinx10/isehelp/cgn_p_memed_single_block.htm>`_ on
 how to create a look up table in Xilinx ISE. The generated module is stored in
-``verilog/coregen/atan_lut.v``.
+:file:`verilog/coregen/atan_lut.v`.

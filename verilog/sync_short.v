@@ -9,16 +9,18 @@ module sync_short (
     input [7:0] set_addr,
     input [31:0] set_data,
 
-    output [31:0] phase_in_i,
-    output [31:0] phase_in_q,
-    output phase_in_stb,
-    input [31:0] phase_out,
-    input phase_out_stb,
-
     input [31:0] sample_in,
     input sample_in_strobe,
 
     output reg short_preamble_detected,
+
+    input [31:0] phase_out,
+    input phase_out_stb,
+
+    output [31:0] phase_in_i,
+    output [31:0] phase_in_q,
+    output phase_in_stb,
+
     output reg signed [31:0] phase_offset
 );
 `include "common_params.v"
@@ -39,14 +41,14 @@ wire sample_delayed_stb;
 reg [31:0] sample_delayed_conj;
 reg sample_delayed_conj_stb;
 
-wire [63:0] delay_prod;
-wire delay_prod_stb;
+wire [63:0] prod;
+wire prod_stb;
 
 reg [15:0] delay_i;
 reg [15:0] delay_q_neg;
 
-wire [63:0] delay_prod_avg;
-wire delay_prod_avg_stb;
+wire [63:0] prod_avg;
+wire prod_avg_stb;
 
 wire [31:0] freq_offset_i;
 wire [31:0] freq_offset_q;
@@ -124,9 +126,9 @@ complex_mult delay_prod_inst (
     .b_q(sample_delayed_conj[15:0]),
     .input_strobe(sample_delayed_conj_stb),
 
-    .p_i(delay_prod[63:32]),
-    .p_q(delay_prod[31:0]),
-    .output_strobe(delay_prod_stb)
+    .p_i(prod[63:32]),
+    .p_q(prod[31:0]),
+    .output_strobe(prod_stb)
 );
 
 moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT))
@@ -134,10 +136,10 @@ delay_prod_avg_i_inst (
     .clock(clock),
     .enable(enable),
     .reset(reset),
-    .data_in(delay_prod[63:32]),
-    .input_strobe(delay_prod_stb),
-    .data_out(delay_prod_avg[63:32]),
-    .output_strobe(delay_prod_avg_stb)
+    .data_in(prod[63:32]),
+    .input_strobe(prod_stb),
+    .data_out(prod_avg[63:32]),
+    .output_strobe(prod_avg_stb)
 );
 
 moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT)) 
@@ -145,9 +147,9 @@ delay_prod_avg_q_inst (
     .clock(clock),
     .enable(enable),
     .reset(reset),
-    .data_in(delay_prod[31:0]),
-    .input_strobe(delay_prod_stb),
-    .data_out(delay_prod_avg[31:0])
+    .data_in(prod[31:0]),
+    .input_strobe(prod_stb),
+    .data_out(prod_avg[31:0])
 );
 
 
@@ -157,8 +159,8 @@ freq_offset_i_inst (
     .clock(clock),
     .enable(enable),
     .reset(reset),
-    .data_in(delay_prod[63:32]),
-    .input_strobe(delay_prod_stb),
+    .data_in(prod[63:32]),
+    .input_strobe(prod_stb),
     .data_out(phase_in_i),
     .output_strobe(phase_in_stb)
 );
@@ -168,8 +170,8 @@ freq_offset_q_inst (
     .clock(clock),
     .enable(enable),
     .reset(reset),
-    .data_in(delay_prod[31:0]),
-    .input_strobe(delay_prod_stb),
+    .data_in(prod[31:0]),
+    .input_strobe(prod_stb),
     .data_out(phase_in_q)
 );
 
@@ -178,9 +180,9 @@ complex_to_mag #(.DATA_WIDTH(32)) delay_prod_avg_mag_inst (
     .reset(reset),
     .enable(enable),
 
-    .i(delay_prod_avg[63:32]),
-    .q(delay_prod_avg[31:0]),
-    .input_strobe(delay_prod_avg_stb),
+    .i(prod_avg[63:32]),
+    .q(prod_avg[31:0]),
+    .input_strobe(prod_avg_stb),
     .mag(delay_prod_avg_mag),
     .mag_stb(delay_prod_avg_mag_stb)
 );

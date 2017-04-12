@@ -14,6 +14,7 @@ Welcome to |project|'s documentation!
    detection
    freq_offset
    sync_long
+   eq
    setting
    verilog
 

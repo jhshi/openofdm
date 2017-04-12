@@ -20,22 +20,26 @@ visually how each correction step helps in the final constellation plane.
 .. _fig_cons:
 .. figure:: /images/cons.png
     :align: center
+    :scale: 80%
 
     Constellation Points Without Any Correction
 
 .. figure:: /images/cons_w_coarse.png
     :align: center
+    :scale: 80%
 
     Constellation Points With Only Coarse Correction
 
 .. figure:: /images/cons_w_coarse_fine.png
     :align: center
+    :scale: 80%
 
     Constellation Points With both Coarse and Fine Correction 
 
 .. _fig_cons_full:
 .. figure:: /images/cons_w_coarse_fine_pilot.png
     :align: center
+    :scale: 80%
 
     Constellation Points With Coarse, Fine and Pilot Correction
 
@@ -49,7 +53,7 @@ The coarse CFO can be estimated using the short preamble as follows:
 
 .. math::
 
-    \alpha_{ST} = \frac{1}{16}\angle(\sum_{i=0}^{N}\overline{S[i]}S[i+16])
+    \alpha_{ST} = \frac{1}{16}\angle(\sum_{i=0}^{N-1}\overline{S[i]}S[i+16])
 
 where :math:`\angle(\cdot)` is the phase of complex number and :math:`N \le 144
 (160 - 16)` is the subset of short preambles utilized. The intuition is that the
@@ -69,5 +73,22 @@ set :math:`N=64`. The ``prod_avg`` in :numref:`fig_sync_short` is fed into a
 ``moving_avg`` module with window size set to 64.
 
 
+Fine CFO Correction
+-------------------
+
+A finer estimation of the CFO can be obtained with the help of long training
+sequence inside the long preamble.
+
+The long preamble contains two identify training sequence (64 samples each at 20
+MSPS), the phase offset can be calculated as:
+
+.. math::
+
+    \alpha_{LT} = \frac{1}{64}\angle(\sum_{i=0}^{63}\overline{S[i]}S[i+64])
+
+This step is omitted in |project| due to the limited resolution of phase
+estimation and rotation in the look up table.
 
 .. [1] Sourour, Essam, Hussein El-Ghoroury, and Dale McNeill.  "Frequency Offset Estimation and Correction in the IEEE 802.11 a WLAN." Vehicular Technology Conference, 2004. VTC2004-Fall. 2004 IEEE 60th. Vol. 7.  IEEE, 2004. 
+
+

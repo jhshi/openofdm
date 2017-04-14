@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to |project|'s documentation!
-=====================================
+|project|: Verilog Implementation of 802.11 OFDM Decoder
+========================================================
 
 .. toctree::
    :maxdepth: 2
@@ -15,6 +15,7 @@ Welcome to |project|'s documentation!
    freq_offset
    sync_long
    eq
+   decode
    setting
    verilog
 

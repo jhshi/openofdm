@@ -44,7 +44,7 @@ visually how each correction step helps in the final constellation plane.
     Constellation Points With Coarse, Fine and Pilot Correction
 
 :numref:`fig_cons` to :numref:`fig_cons_full` shows the constellation points of
-a 64-QAM modulated 802.11a packet.
+a 16-QAM modulated 802.11a packet.
 
 Coarse CFO Correction
 ---------------------
@@ -72,6 +72,8 @@ In |project|, the coarse CFO is calculated in the ``sync_short`` module, and we
 set :math:`N=64`. The ``prod_avg`` in :numref:`fig_sync_short` is fed into a
 ``moving_avg`` module with window size set to 64.
 
+
+.. _sec_fine_cfo:
 
 Fine CFO Correction
 -------------------

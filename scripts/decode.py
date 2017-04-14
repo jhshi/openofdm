@@ -225,13 +225,13 @@ class ChannelEstimator(object):
             prod_sum += prod
         beta = cmath.phase(prod_sum)
         print "[PILOT OFFSET] %f (%d)" % (beta, int(beta*PHASE_SCALE))
-        # beta = 0
         carriers = []
         for c in self.subcarriers:
             if c in PILOT_SUBCARRIES:
                 continue
             symbol[c] *= cmath.exp(complex(0, beta))
-            carriers.append(symbol[c] / self.gain[c])
+            symbol[c] /= self.gain[c]
+            carriers.append(symbol[c])
         return carriers
 
     def switch_ht(self):
@@ -280,7 +280,7 @@ class ChannelEstimator(object):
         fine_offset = cmath.phase(sum([lts[i]*lts[i+64].conjugate()
                                        for i in range(len(lts)-64)]))/64
         print '[FINE OFFSET] %f (%d)' % (fine_offset, int(fine_offset*PHASE_SCALE))
-        # fine_offset = 0
+        fine_offset = 0
 
         self.lts_samples = [c*cmath.exp(complex(0, n*fine_offset))
                for n, c in enumerate(lts)]
@@ -460,11 +460,11 @@ class Decoder(object):
         Returns the index of the first sample of STS
         None if no packet was detected.
         """
-        lts = LONG_PREAMBLE[64:64+64]
-        peaks = np.array([abs(c) for c in np.convolve(
-            samples, lts, mode='same')]).argsort()[-2:]
-        if (max(peaks) - min(peaks) == 64) and (min(peaks) - 33 - 160) > 0:
-            return min(peaks) - 33 - 160
+        lts = LONG_PREAMBLE[-64:]
+        peaks = np.array([abs(c) for c in np.correlate(
+            samples, lts, mode='valid')]).argsort()[-2:]
+        if (max(peaks) - min(peaks) == 64) and (min(peaks) - 32 - 160) > 0:
+            return min(peaks) - 32 - 160
         else:
             return None
 

@@ -74,7 +74,7 @@ reg [31:0] metric_max2;
 reg [(IN_BUF_LEN_SHIFT-1):0] addr2;
 reg [15:0] gap;
 
-reg [31:0] match_filter_buf[0:15];
+reg [31:0] cross_corr_buf[0:15];
 
 reg [31:0] stage_X0;
 reg [31:0] stage_X1;
@@ -206,7 +206,7 @@ integer j;
 always @(posedge clock) begin
     if (reset) begin
         for (j = 0; j < 16; j= j+1) begin
-            match_filter_buf[j] <= 0;
+            cross_corr_buf[j] <= 0;
         end
         do_clear();
         state <= S_SKIPPING;
@@ -265,6 +265,8 @@ always @(posedge clock) begin
                         num_sample <= 0;
                         mult_strobe <= 0;
                         sum_stb <= 0;
+                        // offset it by the length of cross correlation buffer
+                        // size
                         in_raddr <= addr1 - 16;
                         num_input_consumed <= addr1 - 16;
                         in_offset <= 0;
@@ -278,7 +280,6 @@ always @(posedge clock) begin
                 end else if (metric_stb) begin
                     num_sample <= num_sample + 1;
                 end
-
             end
 
             S_FFT: begin
@@ -360,9 +361,9 @@ integer do_mult_i;
 task do_mult; begin
     // cross correlation of the first 16 samples of LTS
     if (sample_in_strobe) begin
-        match_filter_buf[15] <= sample_in;
+        cross_corr_buf[15] <= sample_in;
         for (do_mult_i = 0; do_mult_i < 15; do_mult_i = do_mult_i+1) begin
-            match_filter_buf[do_mult_i] <= match_filter_buf[do_mult_i+1];
+            cross_corr_buf[do_mult_i] <= cross_corr_buf[do_mult_i+1];
         end
 
         sum_stage <= 0;
@@ -370,10 +371,10 @@ task do_mult; begin
         sum_q <= 0;
         sum_stb <= 0;
 
-        stage_X0 <= match_filter_buf[1];
-        stage_X1 <= match_filter_buf[2];
-        stage_X2 <= match_filter_buf[3];
-        stage_X3 <= match_filter_buf[4];
+        stage_X0 <= cross_corr_buf[1];
+        stage_X1 <= cross_corr_buf[2];
+        stage_X2 <= cross_corr_buf[3];
+        stage_X3 <= cross_corr_buf[4];
 
         stage_Y0[31:16] <= 156;
         stage_Y0[15:0] <= 0;
@@ -389,10 +390,10 @@ task do_mult; begin
     end
 
     if (mult_stage == 1) begin
-        stage_X0 <= match_filter_buf[4];
-        stage_X1 <= match_filter_buf[5];
-        stage_X2 <= match_filter_buf[6];
-        stage_X3 <= match_filter_buf[7];
+        stage_X0 <= cross_corr_buf[4];
+        stage_X1 <= cross_corr_buf[5];
+        stage_X2 <= cross_corr_buf[6];
+        stage_X3 <= cross_corr_buf[7];
 
         stage_Y0[31:16] <= 21;
         stage_Y0[15:0] <= -28;
@@ -405,10 +406,10 @@ task do_mult; begin
 
         mult_stage <= 2;
     end else if (mult_stage == 2) begin
-        stage_X0 <= match_filter_buf[8];
-        stage_X1 <= match_filter_buf[9];
-        stage_X2 <= match_filter_buf[10];
-        stage_X3 <= match_filter_buf[11];
+        stage_X0 <= cross_corr_buf[8];
+        stage_X1 <= cross_corr_buf[9];
+        stage_X2 <= cross_corr_buf[10];
+        stage_X3 <= cross_corr_buf[11];
 
         stage_Y0[31:16] <= 98;
         stage_Y0[15:0] <= 26;
@@ -421,10 +422,10 @@ task do_mult; begin
 
         mult_stage <= 3;
     end else if (mult_stage == 3) begin
-        stage_X0 <= match_filter_buf[12];
-        stage_X1 <= match_filter_buf[13];
-        stage_X2 <= match_filter_buf[14];
-        stage_X3 <= match_filter_buf[15];
+        stage_X0 <= cross_corr_buf[12];
+        stage_X1 <= cross_corr_buf[13];
+        stage_X2 <= cross_corr_buf[14];
+        stage_X3 <= cross_corr_buf[15];
 
         stage_Y0[31:16] <= 24;
         stage_Y0[15:0] <= 59;

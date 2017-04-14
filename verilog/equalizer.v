@@ -54,7 +54,7 @@ localparam HT_LTS_REF =
 
 
 localparam POLARITY = 
-    128'b1111111000111011000101001011111010101000010110111100111001010110011000001101101011101000110010001000000100100110100111101110000;
+    127'b1111111000111011000101001011111010101000010110111100111001010110011000001101101011101000110010001000000100100110100111101110000;
 
 // 21, 7, -7, -21
 localparam HT_POLARITY = 4'b1000;
@@ -73,7 +73,7 @@ reg [63:0] subcarrier_mask;
 reg [63:0] data_subcarrier_mask;
 reg [63:0] pilot_mask;
 
-reg [127:0] polarity;
+reg [126:0] polarity;
 reg [3:0] ht_polarity;
 reg [3:0] current_polarity;
 reg [3:0] pilot_count;
@@ -390,7 +390,7 @@ always @(posedge clock) begin
                         polarity[0]     // 7
                         };
                 end
-                polarity <= {polarity[0], polarity[127:1]};
+                polarity <= {polarity[0], polarity[126:1]};
 
                 pilot_sum_i <= 0;
                 pilot_sum_q <= 0;
@@ -413,7 +413,7 @@ always @(posedge clock) begin
                     data_subcarrier_mask <= HT_DATA_SUBCARRIER_MASK;
                     pilot_mask <= PILOT_MASK;
                     // reverse this extra shift
-                    polarity <= {polarity[126:0], polarity[127]};
+                    polarity <= {polarity[125:0], polarity[126]};
                     state <= S_HT_LTS;
                 end
 

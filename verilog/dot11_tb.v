@@ -84,7 +84,7 @@ integer byte_out_fd;
 `endif
 
 `ifndef NUM_SAMPLE
-`define NUM_SAMPLE 1000
+`define NUM_SAMPLE 3000
 `endif
 
 initial begin

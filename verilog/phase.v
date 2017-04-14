@@ -13,7 +13,7 @@ module phase
     input signed [DATA_WIDTH-1:0] in_q,
     input input_strobe,
 
-    // [-pi, pi) scaled up by 2048
+    // [-pi, pi) scaled up by 512
     output reg signed [31:0] phase,
     output output_strobe
 );

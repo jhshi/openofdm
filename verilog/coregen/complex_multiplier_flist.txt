@@ -1,0 +1,15 @@
+# Output products list for <complex_multiplier>
+_xmsgs/pn_parser.xmsgs
+complex_multiplier.asy
+complex_multiplier.gise
+complex_multiplier.ngc
+complex_multiplier.sym
+complex_multiplier.v
+complex_multiplier.veo
+complex_multiplier.vhd
+complex_multiplier.vho
+complex_multiplier.xco
+complex_multiplier.xise
+complex_multiplier_flist.txt
+complex_multiplier_readme.txt
+complex_multiplier_xmdf.tcl

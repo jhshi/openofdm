@@ -1,0 +1,85 @@
+##############################################################
+#
+# Xilinx Core Generator version 12.2
+# Date: Sat Oct 29 21:54:23 2016
+#
+##############################################################
+#
+#  This file contains the customisation parameters for a
+#  Xilinx CORE Generator IP GUI. It is strongly recommended
+#  that you do not manually alter this file as it may cause
+#  unexpected and unsupported behavior.
+#
+##############################################################
+#
+# BEGIN Project Options
+SET addpads = false
+SET asysymbol = true
+SET busformat = BusFormatAngleBracketNotRipped
+SET createndf = false
+SET designentry = Verilog
+SET device = xc3sd3400a
+SET devicefamily = spartan3adsp
+SET flowvendor = Foundation_ISE
+SET formalverification = false
+SET foundationsym = false
+SET implementationfiletype = Ngc
+SET package = fg676
+SET removerpms = false
+SET simulationfiles = Structural
+SET speedgrade = -5
+SET verilogsim = true
+SET vhdlsim = true
+# END Project Options
+# BEGIN Select
+SELECT Viterbi_Decoder family Xilinx,_Inc. 7.0
+# END Select
+# BEGIN Parameters
+CSET architecture=Parallel
+CSET ber_symbol_count=false
+CSET ber_thresh=600
+CSET best_state=true
+CSET best_state_width=3
+CSET block_valid=false
+CSET ce=true
+CSET channels=1
+CSET coding=Soft_Coding
+CSET component_name=viterbi_v7_0
+CSET constraint_length=7
+CSET convolution0_code0=133
+CSET convolution0_code1=171
+CSET convolution0_code2=0
+CSET convolution0_code3=0
+CSET convolution0_code4=0
+CSET convolution0_code5=0
+CSET convolution0_code6=0
+CSET convolution1_code0=1111001
+CSET convolution1_code1=1011011
+CSET convolution1_code2=0
+CSET convolution1_code3=0
+CSET convolution1_code4=0
+CSET convolution1_code5=0
+CSET convolution1_code6=0
+CSET convolution_code_0_radix=Octal
+CSET convolution_code_1_radix=Binary
+CSET data_format=Signed_Magnitude
+CSET direct_traceback=None
+CSET dynamic_thresholds=false
+CSET maximum_direct=24
+CSET norm=false
+CSET norm_thresh=250
+CSET number_of_ber_symbols=300
+CSET output_rate0=2
+CSET output_rate1=2
+CSET puncturing=External
+CSET rdy=true
+CSET reduced_latency=true
+CSET soft_width=3
+CSET synchronization=false
+CSET synchronous_clear=true
+CSET traceback_length=24
+CSET trellis_initialization=None
+CSET viterbi_type=Standard
+# END Parameters
+GENERATE
+# CRC: a323316c

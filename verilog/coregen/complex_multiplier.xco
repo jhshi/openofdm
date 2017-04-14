@@ -1,0 +1,52 @@
+##############################################################
+#
+# Xilinx Core Generator version 12.2
+# Date: Tue Aug 23 18:23:22 2016
+#
+##############################################################
+#
+#  This file contains the customisation parameters for a
+#  Xilinx CORE Generator IP GUI. It is strongly recommended
+#  that you do not manually alter this file as it may cause
+#  unexpected and unsupported behavior.
+#
+##############################################################
+#
+# BEGIN Project Options
+SET addpads = false
+SET asysymbol = true
+SET busformat = BusFormatAngleBracketNotRipped
+SET createndf = false
+SET designentry = Verilog
+SET device = xc3sd3400a
+SET devicefamily = spartan3adsp
+SET flowvendor = Foundation_ISE
+SET formalverification = false
+SET foundationsym = false
+SET implementationfiletype = Ngc
+SET package = fg676
+SET removerpms = false
+SET simulationfiles = Behavioral
+SET speedgrade = -5
+SET verilogsim = true
+SET vhdlsim = true
+# END Project Options
+# BEGIN Select
+SELECT Complex_Multiplier family Xilinx,_Inc. 3.1
+# END Select
+# BEGIN Parameters
+CSET aportwidth=16
+CSET bportwidth=16
+CSET clockenable=false
+CSET component_name=complex_multiplier
+CSET latency=3
+CSET multtype=Use_Mults
+CSET optimizegoal=Resources
+CSET outputwidthhigh=31
+CSET outputwidthlow=0
+CSET roundmode=Truncate
+CSET sclrcepriority=SCLR_overrides_CE
+CSET syncclear=false
+# END Parameters
+GENERATE
+# CRC: 50371edc

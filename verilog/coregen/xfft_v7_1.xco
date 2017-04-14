@@ -1,0 +1,65 @@
+##############################################################
+#
+# Xilinx Core Generator version 12.2
+# Date: Tue Aug 23 02:00:18 2016
+#
+##############################################################
+#
+#  This file contains the customisation parameters for a
+#  Xilinx CORE Generator IP GUI. It is strongly recommended
+#  that you do not manually alter this file as it may cause
+#  unexpected and unsupported behavior.
+#
+##############################################################
+#
+# BEGIN Project Options
+SET addpads = false
+SET asysymbol = true
+SET busformat = BusFormatAngleBracketNotRipped
+SET createndf = false
+SET designentry = Verilog
+SET device = xc3sd3400a
+SET devicefamily = spartan3adsp
+SET flowvendor = Foundation_ISE
+SET formalverification = false
+SET foundationsym = false
+SET implementationfiletype = Ngc
+SET package = fg676
+SET removerpms = false
+SET simulationfiles = Behavioral
+SET speedgrade = -5
+SET verilogsim = true
+SET vhdlsim = true
+# END Project Options
+# BEGIN Select
+SELECT Fast_Fourier_Transform family Xilinx,_Inc. 7.1
+# END Select
+# BEGIN Parameters
+CSET butterfly_type=use_luts
+CSET ce=false
+CSET channels=1
+CSET complex_mult_type=use_mults_resources
+CSET component_name=xfft_v7_1
+CSET cyclic_prefix_insertion=false
+CSET data_format=fixed_point
+CSET implementation_options=pipelined_streaming_io
+CSET input_data_offset=no_offset
+CSET input_width=16
+CSET memory_options_data=block_ram
+CSET memory_options_hybrid=false
+CSET memory_options_phase_factors=block_ram
+CSET memory_options_reorder=block_ram
+CSET number_of_stages_using_block_ram_for_data_and_phase_factors=0
+CSET output_ordering=natural_order
+CSET ovflo=false
+CSET phase_factor_width=16
+CSET rounding_modes=truncation
+CSET run_time_configurable_transform_length=false
+CSET scaling_options=unscaled
+CSET sclr=false
+CSET target_clock_frequency=100
+CSET target_data_throughput=50
+CSET transform_length=64
+# END Parameters
+GENERATE
+# CRC: 2da176bc

@@ -1,0 +1,18 @@
+# Output products list for <viterbi_v7_0>
+_xmsgs/pn_parser.xmsgs
+viterbi_v7_0.asy
+viterbi_v7_0.gise
+viterbi_v7_0.ngc
+viterbi_v7_0.sym
+viterbi_v7_0.v
+viterbi_v7_0.veo
+viterbi_v7_0.vhd
+viterbi_v7_0.vho
+viterbi_v7_0.xco
+viterbi_v7_0.xise
+viterbi_v7_0_flist.txt
+viterbi_v7_0_readme.txt
+viterbi_v7_0_xmdf.tcl
+viterbi_v7_0rombram.mif
+viterbi_v7_0romlifo.mif
+viterbi_v7_0romwe.mif

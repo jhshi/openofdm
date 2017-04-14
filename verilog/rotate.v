@@ -22,6 +22,7 @@ module rotate
 );
 `include "common_params.v"
 
+reg [31:0] phase_delayed;
 reg [31:0] phase_abs;
 
 reg [2:0] quadrant;
@@ -89,6 +90,7 @@ always @(posedge clock) begin
         rot_i <= 0;
         rot_q <= 0;
         phase_abs <= 0;
+        phase_delayed <= 0;
 
     end else if (enable) begin
         `ifdef DEBUG_PRINT
@@ -99,19 +101,20 @@ always @(posedge clock) begin
 
         // cycle 1
         phase_abs <= phase[31]? ~phase+1: phase;
+        phase_delayed <= phase;
 
         // cycle 2
         if (phase_abs <= PI_4) begin
-            quadrant <= {phase[31], 2'b00};
+            quadrant <= {phase_delayed[31], 2'b00};
             actual_phase <= phase_abs;
         end else if (phase_abs <= PI_2) begin
-            quadrant <= {phase[31], 2'b01};
+            quadrant <= {phase_delayed[31], 2'b01};
             actual_phase <= PI_2 - phase_abs;
         end else if (phase_abs <= PI_3_4) begin
-            quadrant <= {phase[31], 2'b10};
+            quadrant <= {phase_delayed[31], 2'b10};
             actual_phase <= phase_abs - PI_2;
         end else begin
-            quadrant <= {phase[31], 2'b11};
+            quadrant <= {phase_delayed[31], 2'b11};
             actual_phase <= PI - phase_abs;
         end
 

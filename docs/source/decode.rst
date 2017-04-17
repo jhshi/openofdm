@@ -208,16 +208,83 @@ using the same logic.
 
     Scrambler/Descrambler Logic
 
-Suppose the current input bit is :math:`B`, the output bit :math:`B'` and the
+Suppose the current input bit is :math:`B_n`, the scrambled bit :math:`B^s_n` and the
 internal state of the scrambler is updated as follows:
 
 .. math::
 
-    B' &\leftarrow X^1 \oplus B\\
-    X^1 &\leftarrow X^7 \oplus X^4\\
-    X^i &\leftarrow X^{i-1}, i = 2, 3,\ldots, 7
+    B^s_n &\leftarrow X_n^1 \oplus B_n\\
+    X_{n+1}^1 &\leftarrow X_n^7 \oplus X_n^4\\
+    X_{n+1}^i &\leftarrow X_n^{i-1}, i = 2, 3,\ldots, 7
 
-At the transmitter side, for each packet, the scrambler is loaded with pseudo
-random value. The very first 7 bits of the data bits is preset to zero before
-scrambling, so that the receiver can estimate the value using the scrambled
-bits.
+where :math:`X^i_n` is the scrambler state before the nth input bit, :math:`n=0,
+1, 2,\ldots`.
+
+At the transmitter side, for each packet, the scrambler is initialized with
+pseudo random value. The very first 7 bits of the data bits is preset to zero
+before scrambling, so that the receiver can estimate the value using the
+scrambled bits.
+
+Now let's see how the receiver recovers the initial state of the transmitter's
+scrambler. There are two ways to interpret this.
+
+First, we can *calculate* the initial state. Since the first 7 un-scrambled bits
+(:math:`B_0` to :math:`B_6`) are all zeros, the scrambled bits can be obtained
+by:
+
+.. math::
+
+    B^s_0 &= X_0^7 \oplus X_0^4\\
+    B^s_1 &= X_1^7 \oplus X_1^4 = X_0^6 \oplus X_0^3\\
+    B^s_2 &= X_2^7 \oplus X_2^4 = X_0^5 \oplus X_0^2\\
+    B^s_3 &= X_3^7 \oplus X_3^4 = X_0^4 \oplus X_0^1\\
+    B^s_4 &= X_4^7 \oplus X_4^4 = X_0^3 \oplus B^s_0\\
+    B^s_5 &= X_5^7 \oplus X_5^4 = X_0^2 \oplus B^s_1\\
+    B^s_6 &= X_6^7 \oplus X_6^4 = X_0^1 \oplus B^s_2\\
+
+From which we can reverse calculating the value of :math:`X` as follows:
+
+.. math::
+
+    X_0^1 &= B^s_6 \oplus B^s_2\\
+    X_0^2 &= B^s_5 \oplus B^s_1\\
+    X_0^3 &= B^s_4 \oplus B^s_0\\
+    X_0^4 &= B^s_3 \oplus X_0^1 = B^s_3 \oplus B^s_6 \oplus B^s_2\\
+    X_0^5 &= B^s_2 \oplus X_0^2 = B^s_2 \oplus B^s_5 \oplus B^s_1\\
+    X_0^6 &= B^s_1 \oplus X_0^3 = B^s_1 \oplus B^s_4 \oplus B^s_0\\
+    X_0^7 &= B^s_0 \oplus X_0^4 = B^s_0 \oplus B^s_3 \oplus B^s_6 \oplus B^s_2\\
+
+This interpretation does not lead to efficient Verilog implementation since we
+need to first buffer the first 7 bits, calculate the initial state and then
+descramble from the first 7 bits again.
+
+The second interpretation is that: **the first 7 scrambled bits are the state
+after scrambling the 7 bits**. In other words, we have:
+
+.. math::
+
+    X_7^7 &= B^s_0\\
+    X_7^6 &= B^s_1\\
+    X_7^5 &= B^s_2\\
+    X_7^4 &= B^s_3\\
+    X_7^3 &= B^s_4\\
+    X_7^2 &= B^s_5\\
+    X_7^1 &= B^s_6\\
+
+For instance, take a look at :math:`X_7^7`,
+
+.. math::
+    
+    X_7^7 = X_6^6 = \ldots = X_1^1 = X_0^7 \oplus X_0^4
+
+We also know that:
+
+.. math::
+    
+    B^s_0 &= X_0^7 \oplus X_0^4 \oplus B_0\\
+    &= X_0^7 \oplus X_0^4 \oplus 0 \\
+    &= X_0^7 \oplus X_0^4
+
+Therefore :math:`X_7^7 = B^s_0`. This way we directly get the state to
+descramble the next bit :math:`B^s_7`, resulting a very simple Verilog
+implementation.

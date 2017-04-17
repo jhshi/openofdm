@@ -16,6 +16,7 @@
    sync_long
    eq
    decode
+   sig
    setting
    verilog
 

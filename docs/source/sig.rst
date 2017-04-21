@@ -102,4 +102,33 @@ in |project|:
 - Tail bits: must all be 0.
 
 
+.. _fig_ht_sig_crc:
+.. figure:: /images/ht_sig_crc.png
+    :align: center
+    :scale: 80%
 
+    CRC Calculation of HT-SIG
+
+:numref:`fig_ht_sig_crc` shows the logic to calculate the CRC in HT-SIG. The
+shift registers :math:`C_0,\ldots,C_7` are initialized with all ones. For each
+data bit :math:`m_0,\ldots,m_{33}`, the shift register is updated as:
+
+.. math:: 
+
+    C^{i+1}_7 &= C^{i}_6\\
+    C^{i+1}_6 &= C^{i}_5\\
+    C^{i+1}_5 &= C^{i}_4\\
+    C^{i+1}_4 &= C^{i}_3\\
+    C^{i+1}_3 &= C^{i}_2\\
+    C^{i+1}_2 &= C^{i}_1 \oplus C^{i}_7 \oplus m_i\\
+    C^{i+1}_1 &= C^{i}_0 \oplus C^{i}_7 \oplus m_i\\
+    C^{i+1}_0 &= C^{i}_7 \oplus m_i\\
+
+The CRC is then :math:`\overline{C^{34}_7},\ldots,\overline{C^{34}_0}`. Note the
+bits are inverted.
+
+The next OFDM symbol after HT-SIG is HT short preamble, which is skipped in
+|project|. The following OFDM symbol contains HT long training sequence, which
+replaces the legacy channel gain inside :file:`equalizer.v` module. The rest
+decoding logic is similar to 802.11a/g, except the number of data sub-carriers
+is adjusted from 48 to 52.

@@ -14,7 +14,6 @@ module descramble
 reg [6:0] state;
 reg [4:0] bit_count;
 
-reg [5:0] init_bits;
 reg inited;
 
 wire feedback = state[6] ^ state[3];
@@ -23,7 +22,6 @@ always @(posedge clock) begin
     if (reset) begin
         bit_count <= 0;
         state <= 0;
-        init_bits <= 0;
         inited <= 0;
         out_bit <= 0;
         output_strobe <= 0;

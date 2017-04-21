@@ -8,34 +8,54 @@ import subprocess
 import decode
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SIM_OUT_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), 'sim_out')
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+VERILOG_DIR = os.path.join(PROJECT_ROOT, 'verilog')
+SIM_OUT_DIR = os.path.join(VERILOG_DIR, 'sim_out')
+
+
+def arg_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('sample', help="Sample file to test.")
+    parser.add_argument('--no_sim', action='store_true', default=False,
+                        help="Skip simulation step.")
+    parser.add_argument('--stop', type=int, default=None,
+                        help="Number samples to decode. By default it stops "\
+                        "after the first packet.")
+    return parser
 
 
 def test():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('file', help="Sample file to test.")
-    parser.add_argument('--no_sim', action='store_true', default=False)
-    parser.add_argument('--stop', type=int)
-    args = parser.parse_args()
+    args = arg_parser().parse_args()
 
-    with open(args.file, 'rb') as f:
+    args.sample = os.path.abspath(args.sample)
+
+    with open(args.sample, 'rb') as f:
         samples = scipy.fromfile(f, dtype=scipy.int16)
     samples = [complex(i, q) for i, q in zip(samples[::2], samples[1::2])]
-    print "Using file %s (%d samples)" % (args.file, len(samples))
+    print "Using file %s (%d samples)" % (args.sample, len(samples))
 
-    memory_file = '%s.txt' % (os.path.splitext(args.file)[0])
+    memory_file = '%s.txt' % (os.path.splitext(args.sample)[0])
     if not os.path.isfile(memory_file) or\
-            os.path.getmtime(memory_file) < os.path.getmtime(args.file):
+            os.path.getmtime(memory_file) < os.path.getmtime(args.sample):
         subprocess.check_call('python %s/bin_to_mem.py %s --out %s' %\
-                              (SCRIPT_DIR, args.file, memory_file), shell=True)
+                              (SCRIPT_DIR, args.sample, memory_file), shell=True)
+
+    print "Decoding..."
+    begin, expected_signal, cons, expected_demod_out,\
+        expected_deinterleave_out,\
+        expected_conv_out, expected_descramble_out, expected_byte_out, pkt =\
+        decode.Decoder(args.sample, skip=0).decode_next()
+
+    num_sample = int((expected_signal.length*8.0/expected_signal.rate +
+                      (40 if expected_signal.ht else 20))*20)
+
+    if args.stop is None:
+        stop = begin + num_sample + 320
+    else:
+        stop = min(args.stop, len(samples))
+    print "Stop after %d samples" % (stop)
 
     if not args.no_sim:
-        if args.stop is None:
-            stop = len(samples)
-        else:
-            stop = min(args.stop, len(samples))
-        print "Stop after %d samples" % (stop)
-
         try:
             subprocess.check_call('rm -rfv %s/*' % (SIM_OUT_DIR), shell=True)
         except:
@@ -43,12 +63,19 @@ def test():
 
         try:
             subprocess.check_call(
-                'iverilog -DDEBUG_PRINT -DSAMPLE_FILE="\\"%s\\"" -DNUM_SAMPLE=%d -c dot11_modules.list dot11_tb.v'
-                % (memory_file, stop), shell=True)
-            subprocess.check_call('vvp -n a.out', shell=True)
+                'iverilog -DDEBUG_PRINT '\
+                '-DSAMPLE_FILE="\\"%s\\"" '\
+                '-DNUM_SAMPLE=%d '\
+                '-c dot11_modules.list '\
+                'dot11_tb.v '\
+                '-o dot11.out' %
+                (memory_file, stop), cwd=VERILOG_DIR, shell=True)
+            subprocess.check_call('vvp -n dot11.out', cwd=VERILOG_DIR,
+                                  shell=True)
         except KeyboardInterrupt:
             try:
-                subprocess.check_call('pgrep -f "vvp" | xargs kill -9', shell=True)
+                subprocess.check_call('pgrep -f "vvp" | xargs kill -9',
+                                      shell=True)
             except:
                 pass
             return
@@ -62,11 +89,6 @@ def test():
 
     with open('%s/descramble_out.txt' % (SIM_OUT_DIR), 'r') as f:
         descramble_out = f.read().replace('\n', '')
-
-    print "Decoding..."
-    expected_signal, cons, expected_demod_out, expected_deinterleave_out,\
-        expected_conv_out, expected_descramble_out, expected_byte_out, pkt =\
-        decode.Decoder(args.file, skip=0).decode_next()
 
     if not expected_signal.ht:
         signal_error = False
@@ -182,8 +204,8 @@ def test():
     for idx in range(min(len(byte_out), len(expected_byte_out))):
         expected = expected_byte_out[idx]
         got = byte_out[idx]
-        print "%10s: %02x" % ("Expected", expected)
-        print "%10s: %02x" % ("Got", got)
+        print "[%d / %d] Expect: %02x, Got: %02x" %\
+            (idx+1, len(expected_byte_out), expected, got)
         if expected != got:
             print "BYTE error"
             error = True

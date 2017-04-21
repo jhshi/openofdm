@@ -37,12 +37,12 @@ wire conv_decoder_out_stb;
 wire descramble_out;
 wire descramble_out_strobe;
 
-wire [3:0] data_rate;
-wire signal_reserved;
-wire [11:0] length;
-wire parity;
-wire [5:0] signal_tail;
-wire signal_out_strobe;
+wire [3:0] legacy_rate;
+wire legacy_sig_rsvd;
+wire [11:0] legacy_len;
+wire legacy_sig_parity;
+wire [5:0] legacy_sig_tail;
+wire legacy_sig_stb;
 reg signal_done;
 
 wire [3:0] dot11_state;
@@ -88,7 +88,7 @@ integer byte_out_fd;
 `endif
 
 initial begin
-    $dumpfile("dot11_decoder.vcd");
+    $dumpfile("dot11.vcd");
     $dumpvars;
 
     $display("Reading memory from...");
@@ -155,7 +155,7 @@ always @(posedge clock) begin
             clk_count <= clk_count + 1;
         end
 
-        if (signal_out_strobe) begin
+        if (legacy_sig_stb) begin
         end
 
         if (sample_in_strobe && power_trigger) begin
@@ -196,9 +196,9 @@ always @(posedge clock) begin
             $fflush(equalizer_out_fd);
         end
 
-        if (signal_out_strobe) begin
+        if (legacy_sig_stb) begin
             signal_done <= 1;
-            $fwrite(signal_fd, "%04b %b %012b %b %06b", data_rate, signal_reserved, length, parity, signal_tail);
+            $fwrite(signal_fd, "%04b %b %012b %b %06b", legacy_rate, legacy_sig_rsvd, legacy_len, legacy_sig_parity, legacy_sig_tail);
             $fflush(signal_fd);
         end
 
@@ -272,12 +272,12 @@ dot11 dot11_inst (
     .byte_out(byte_out),
     .byte_out_strobe(byte_out_strobe),
 
-    .data_rate(data_rate),
-    .signal_reserved(signal_reserved),
-    .length(length),
-    .parity(parity),
-    .signal_tail(signal_tail),
-    .signal_out_strobe(signal_out_strobe)
+    .legacy_rate(legacy_rate),
+    .legacy_sig_rsvd(legacy_sig_rsvd),
+    .legacy_len(legacy_len),
+    .legacy_sig_parity(legacy_sig_parity),
+    .legacy_sig_tail(legacy_sig_tail),
+    .legacy_sig_stb(legacy_sig_stb)
 );
 
 endmodule

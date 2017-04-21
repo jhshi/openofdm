@@ -15,9 +15,12 @@ module dot11 (
     input sample_in_strobe,
 
     // OUTPUT: bytes and FCS status
-    output [7:0] byte_out,
+    output reg pkt_begin,
+    output reg pkt_ht,
+    output reg [7:0] pkt_rate,
+    output reg [15:0] pkt_len,
     output byte_out_strobe,
-
+    output [7:0] byte_out,
     output reg fcs_out_strobe,
     output reg fcs_ok,
 
@@ -50,30 +53,30 @@ module dot11 (
     output equalizer_out_strobe,
     output [2:0] equalizer_state,
 
-    // signal info
-    output reg signal_out_strobe,
-    output [3:0] data_rate,
-    output signal_reserved,
-    output [11:0] length,
-    output parity,
-    output parity_ok,
-    output [5:0] signal_tail,
+    // legacy signal info
+    output reg legacy_sig_stb,
+    output [3:0] legacy_rate,
+    output legacy_sig_rsvd,
+    output [11:0] legacy_len,
+    output legacy_sig_parity,
+    output legacy_sig_parity_ok,
+    output [5:0] legacy_sig_tail,
 
     // ht signal info
-    output reg ht_sig_strobe,
-    output [6:0] mcs,
-    output cbw,
+    output reg ht_sig_stb,
+    output [6:0] ht_mcs,
+    output ht_cbw,
     output [15:0] ht_len,
-    output smoothing,
-    output not_sounding,
-    output aggregation,
-    output [1:0] stbc,
-    output fec_coding,
+    output ht_smoothing,
+    output ht_not_sounding,
+    output ht_aggregation,
+    output [1:0] ht_stbc,
+    output ht_fec_coding,
     output ht_sgi,
-    output [1:0] num_ext_spatial,
+    output [1:0] ht_num_ext,
     output reg ht_sig_crc_ok,
 
-    // OFDM stuff
+    // decoding pipeline
     output [5:0] demod_out,
     output demod_out_strobe,
 
@@ -185,7 +188,6 @@ reg [15:0] ofdm_in_i;
 reg [15:0] ofdm_in_q;
 
 reg do_descramble;
-reg [7:0] rate;
 reg [31:0] num_bits_to_decode;
 reg short_gi;
 
@@ -196,29 +198,29 @@ assign state_changed = state != old_state;
 reg [23:0] signal_bits;
 reg [31:0] byte_count;
 
-assign data_rate = signal_bits[3:0];
-assign signal_reserved = signal_bits[4];
-assign length = signal_bits[16:5];
-assign parity = signal_bits[17];
-assign signal_tail = signal_bits[23:18];
-assign parity_ok = ~^signal_bits[17:0];
+assign legacy_rate = signal_bits[3:0];
+assign legacy_sig_rsvd = signal_bits[4];
+assign legacy_len = signal_bits[16:5];
+assign legacy_sig_parity = signal_bits[17];
+assign legacy_sig_tail = signal_bits[23:18];
+assign legacy_sig_parity_ok = ~^signal_bits[17:0];
 
 
 // HT-SIG information
 reg [23:0] ht_sig1;
 reg [23:0] ht_sig2;
 
-assign mcs = ht_sig1[6:0];
-assign cbw = ht_sig1[7];
+assign ht_mcs = ht_sig1[6:0];
+assign ht_cbw = ht_sig1[7];
 assign ht_len = ht_sig1[23:8];
 
-assign smoothing = ht_sig2[0];
-assign not_sounding = ht_sig2[1];
-assign aggregation = ht_sig2[3];
-assign stbc = ht_sig2[5:4];
-assign fec_coding = ht_sig2[6];
+assign ht_smoothing = ht_sig2[0];
+assign ht_not_sounding = ht_sig2[1];
+assign ht_aggregation = ht_sig2[3];
+assign ht_stbc = ht_sig2[5:4];
+assign ht_fec_coding = ht_sig2[6];
 assign ht_sgi = ht_sig2[7];
-assign num_ext_spatial = ht_sig2[9:8];
+assign ht_num_ext = ht_sig2[9:8];
 
 
 wire ht_rsvd = ht_sig2[2];
@@ -231,8 +233,6 @@ reg crc_in;
 reg [7:0] crc_count;
 reg crc_reset;
 wire [7:0] crc_out;
-
-reg [31:0] pkt_length;
 
 reg [31:0] sample_count;
 
@@ -363,7 +363,7 @@ ofdm_decoder ofdm_decoder_inst (
 
     .do_descramble(do_descramble),
     .num_bits_to_decode(num_bits_to_decode),
-    .rate(rate),
+    .rate(pkt_rate),
 
     .byte_out(byte_out),
     .byte_out_strobe(byte_out_strobe),
@@ -413,6 +413,9 @@ always @(posedge clock) begin
 
         byte_count <= 0;
 
+        pkt_begin <= 0;
+        pkt_ht <= 0;
+
 
         rot_eq_count <= 0;
         normal_eq_count <= 0;
@@ -422,13 +425,13 @@ always @(posedge clock) begin
         do_descramble <= 0;
         num_bits_to_decode <= 0;
         short_gi <= 0;
-        rate <= 0;
+        pkt_rate <= 0;
 
         equalizer_reset <= 0;
         equalizer_enable <= 0;
         ht_next <= 0;
 
-        pkt_length <= 0;
+        pkt_len <= 0;
 
         ofdm_reset <= 0;
         ofdm_enable <= 0;
@@ -441,7 +444,7 @@ always @(posedge clock) begin
         sync_long_out_count <= 0;
 
         signal_bits <= 0;
-        signal_out_strobe <= 0;
+        legacy_sig_stb <= 0;
 
         ht_sig1 <= 0;
         ht_sig2 <= 0;
@@ -450,7 +453,7 @@ always @(posedge clock) begin
         crc_count <= 0;
         crc_reset <= 0;
         ht_sig_crc_ok <= 0;
-        ht_sig_strobe <= 0;
+        ht_sig_stb <= 0;
 
         fcs_out_strobe <= 0;
         fcs_ok <= 0;
@@ -511,7 +514,7 @@ always @(posedge clock) begin
                 end
 
                 if (long_preamble_detected) begin
-                    rate <= {1'b0, 3'b0, 4'b1011};
+                    pkt_rate <= {1'b0, 3'b0, 4'b1011};
                     do_descramble <= 0;
                     num_bits_to_decode <= 48;
 
@@ -547,10 +550,10 @@ always @(posedge clock) begin
                 if (byte_count == 3) begin
                     byte_count <= 0;
                     `ifdef DEBUG_PRINT
-                        $display("[SIGNAL] rate = %04b, ", data_rate,
-                            "length = %012b (%d), ", length, length,
-                            "parity = %b, ", parity,
-                            "tail = %6b", signal_tail);
+                        $display("[SIGNAL] rate = %04b, ", legacy_rate,
+                            "length = %012b (%d), ", legacy_len, legacy_len,
+                            "parity = %b, ", legacy_sig_parity,
+                            "tail = %6b", legacy_sig_tail);
                     `endif
                     ofdm_reset <= 1;
                     state <= S_CHECK_SIGNAL;
@@ -562,32 +565,34 @@ always @(posedge clock) begin
                     ofdm_reset <= 0;
                 end
 
-                if (~parity_ok) begin
+                if (~legacy_sig_parity_ok) begin
                     status_code <= E_PARITY_FAIL;
                     state <= S_SIGNAL_ERROR;
-                end else if (signal_reserved) begin
+                end else if (legacy_sig_rsvd) begin
                     status_code <= E_WRONG_RSVD;
                     state <= S_SIGNAL_ERROR;
-                end else if (|signal_tail) begin
+                end else if (|legacy_sig_tail) begin
                     status_code <= E_WRONG_TAIL;
                     state <= S_SIGNAL_ERROR;
                 end else begin
-                    signal_out_strobe <= 1;
+                    legacy_sig_stb <= 1;
                     status_code <= E_OK;
-                    if (data_rate == 4'b1011) begin
+                    if (legacy_rate == 4'b1011) begin
                         abs_eq_i <= 0;
                         abs_eq_q <= 0;
                         rot_eq_count <= 0;
                         normal_eq_count <= 0;
                         state <= S_DETECT_HT;
                     end else begin
-                        rate <= {1'b0, 3'b0, data_rate};
-                        num_bits_to_decode <= (length+3)<<4;
+                        pkt_rate <= {1'b0, 3'b0, legacy_rate};
+                        num_bits_to_decode <= (legacy_len+3)<<4;
                         do_descramble <= 1;
                         ofdm_reset <= 1;
                         byte_count <= 0;
-                        pkt_length <= length;
+                        pkt_len <= legacy_len;
                         byte_count <= 0;
+                        pkt_begin <= 1;
+                        pkt_ht <= 0;
                         state <= S_DECODE_DATA;
                     end
                 end
@@ -598,7 +603,7 @@ always @(posedge clock) begin
             end
 
             S_DETECT_HT: begin
-                signal_out_strobe <= 0;
+                legacy_sig_stb <= 0;
 
                 if (equalizer_out_strobe) begin
                     abs_eq_i <= eq_out_i[15]? ~eq_out_i+1: eq_out_i;
@@ -613,17 +618,19 @@ always @(posedge clock) begin
                 if (rot_eq_count >= 4) begin
                     // HT-SIG detected
                     byte_count <= 0;
-                    rate <= {1'b0, 3'b0, 4'b1011};
+                    pkt_rate <= {1'b0, 3'b0, 4'b1011};
                     num_bits_to_decode <= 96;
                     do_descramble <= 0;
                     ofdm_reset <= 1;
                     state <= S_HT_SIGNAL;
                 end else if (normal_eq_count > 4) begin
-                    pkt_length <= length;
-                    num_bits_to_decode <= (length+3)<<4;
+                    pkt_len <= legacy_len;
+                    num_bits_to_decode <= (legacy_len+3)<<4;
                     do_descramble <= 1;
                     ofdm_reset <= 1;
                     byte_count <= 0;
+                    pkt_begin <= 1;
+                    pkt_ht <= 0;
                     state <= S_DECODE_DATA;
                 end
             end
@@ -650,15 +657,15 @@ always @(posedge clock) begin
                 if (byte_count == 6) begin
                     byte_count <= 0;
                     `ifdef DEBUG_PRINT
-                        $display("[HT SIGNAL] mcs = %07b (%d), ", mcs, mcs,
-                            "CBW: %d, ", cbw? 40: 20,
+                        $display("[HT SIGNAL] mcs = %07b (%d), ", ht_mcs, ht_mcs,
+                            "CBW: %d, ", ht_cbw? 40: 20,
                             "length = %012b (%d), ", ht_len, ht_len,
                             "rsvd = %d, ", ht_rsvd,
-                            "aggr = %d, ", aggregation,
-                            "stbd = %02b, ", stbc,
-                            "fec = %d, ", fec_coding,
+                            "aggr = %d, ", ht_aggregation,
+                            "stbd = %02b, ", ht_stbc,
+                            "fec = %d, ", ht_fec_coding,
                             "sgi = %d, ", ht_sgi,
-                            "num_ext = %d, ", num_ext_spatial,
+                            "num_ext = %d, ", ht_num_ext,
                             "crc = %08b, ", crc,
                             "tail = %06b", ht_sig_tail);
                     `endif
@@ -685,14 +692,14 @@ always @(posedge clock) begin
                 end else if (crc_count == 35) begin
                     if (crc_out ^ crc) begin
                         status_code <= E_WRONG_CRC;
-                        ht_sig_strobe <= 1;
+                        ht_sig_stb <= 1;
                         state <= S_HT_SIG_ERROR;
                     end else begin
                         `ifdef DEBUG_PRINT
                             $display("[HT SIGNAL] CRC OK");
                         `endif
                         ht_sig_crc_ok <= 1;
-                        ht_sig_strobe <= 1;
+                        ht_sig_stb <= 1;
                         ofdm_reset <= 1;
                         state <= S_CHECK_HT_SIG;
                     end
@@ -701,26 +708,26 @@ always @(posedge clock) begin
 
             S_CHECK_HT_SIG: begin
                 ofdm_reset <= 0;
-                ht_sig_strobe <= 0;
-                if (mcs > 7) begin
+                ht_sig_stb <= 0;
+                if (ht_mcs > 7) begin
                     status_code <= E_UNSUPPORTED_MCS;
                     state <= S_HT_SIG_ERROR;
-                end else if (cbw) begin
+                end else if (ht_cbw) begin
                     status_code <= E_UNSUPPORTED_CBW;
                     state <= S_HT_SIG_ERROR;
                 end else if (ht_rsvd == 0) begin
                     status_code <= E_HT_WRONG_RSVD;
                     state <= S_HT_SIG_ERROR;
-                end else if (stbc != 0) begin
+                end else if (ht_stbc != 0) begin
                     status_code <= E_UNSUPPORTED_STBC;
                     state <= S_HT_SIG_ERROR;
-                end else if (fec_coding) begin
+                end else if (ht_fec_coding) begin
                     status_code <= E_UNSUPPORTED_FEC;
                     state <= S_HT_SIG_ERROR;
                 end else if (short_gi) begin
                     status_code <= E_UNSUPPORTED_SGI;
                     state <= S_HT_SIG_ERROR;
-                end else if (num_ext_spatial != 0) begin
+                end else if (ht_num_ext != 0) begin
                     status_code <= E_UNSUPPORTED_SPATIAL;
                     state <= S_HT_SIG_ERROR;
                 end else if (ht_sig_tail != 0) begin
@@ -733,7 +740,7 @@ always @(posedge clock) begin
             end
 
             S_HT_SIG_ERROR: begin
-                ht_sig_strobe <= 0;
+                ht_sig_stb <= 0;
                 state <= S_WAIT_POWER_TRIGGER;
             end
 
@@ -756,17 +763,20 @@ always @(posedge clock) begin
                 if (sync_long_out_count == 64) begin
                     ht_next <= 0;
                     num_bits_to_decode <= (ht_len+3)<<4;
-                    rate <= {1'b1, mcs};
+                    pkt_rate <= {1'b1, ht_mcs};
                     do_descramble <= 1;
                     ofdm_reset <= 1;
                     byte_count <= 0;
-                    pkt_length <= ht_len;
+                    pkt_len <= ht_len;
+                    pkt_begin <= 1;
+                    pkt_ht <= 1;
                     state <= S_DECODE_DATA;
                 end
             end
 
             S_DECODE_DATA: begin
-                signal_out_strobe <= 0;
+                pkt_begin <= 0;
+                legacy_sig_stb <= 0;
 
                 if (ofdm_reset) begin
                     ofdm_reset <= 0;
@@ -778,13 +788,13 @@ always @(posedge clock) begin
 
                 if (byte_out_strobe) begin
                     `ifdef DEBUG_PRINT
-                        $display("[BYTE] [%4d/%4d] %02x", byte_count, pkt_length,
+                        $display("[BYTE] [%4d / %-4d] %02x", byte_count+1, pkt_len,
                             byte_out);
                     `endif
                     byte_count <= byte_count + 1;
                 end
 
-                if (byte_count >= pkt_length) begin
+                if (byte_count >= pkt_len) begin
                     fcs_out_strobe <= 1;
                     if (pkt_fcs == EXPECTED_FCS) begin
                         fcs_ok <= 1;

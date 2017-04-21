@@ -416,7 +416,7 @@ class HTSignal(object):
 
 class Decoder(object):
 
-    def __init__(self, path, power_thres=200, skip=1e6, window=160):
+    def __init__(self, path, power_thres=200, skip=0, window=80):
         if path is not None:
             self.fh = open(path, 'rb')
             size = os.path.getsize(path)
@@ -432,8 +432,9 @@ class Decoder(object):
         trigger = False
         samples = []
         glbl_index = 0
+
         while True:
-            chunk = array.array('h', self.fh.read(self.window))
+            chunk = array.array('h', self.fh.read(self.window*4))
             chunk = [complex(i, q) for i, q in zip(chunk[::2], chunk[1::2])]
             if not trigger and any([abs(c) > self.power_thres for c in chunk]):
                 trigger = True
@@ -453,7 +454,8 @@ class Decoder(object):
                 else:
                     print "Decoding packet starting from sample %d" %\
                         (glbl_index + start)
-                    return self.decode(samples[start:], *args, **kwargs)
+                    return (glbl_index, ) +\
+                        self.decode(samples[start:], *args, **kwargs)
 
     def find_pkt(self, samples):
         """

@@ -26,4 +26,5 @@ Highlights are:
    sig
    setting
    verilog
+   usrp
 

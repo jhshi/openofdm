@@ -110,6 +110,7 @@ a conducted or over the air setup. These files covers all the bit rates (legacy
 and HT) supported in |project|.
 
 .. _sec_sample:
+
 Sample File
 -----------
 

@@ -1,5 +1,5 @@
 Sub-carrier Equalization and Pilot Correction
-============================================
+=============================================
 
 - **Module**: :file:`equalizer.v`
 - **Input**: ``I (16), Q (16)``

@@ -8,6 +8,7 @@ Features are:
  - Full support for legacy 802.11a/g
  - Support 802.11n for MCS 0 - 7 @ 20 MHz bandwidth
  - Cross validation with included Python decoder 
+ - Modular design for easy modification and extension
 
 
 Environment Setup

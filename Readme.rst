@@ -28,3 +28,9 @@ In a nutshell, the top level ``dot11`` Verilog module takes 32-bit I/Q samples
 (16-bit each) as input, and output decoded bytes in 802.11 packet. The sampling
 rate is 20 MSPS and the clock rate is 100 MHz. This means this module expects
 one pair of I/Q sample every 5 clock ticks.
+
+
+License
+-------
+
+`Apache License 2.0 <https://www.apache.org/licenses/LICENSE-2.0>`_

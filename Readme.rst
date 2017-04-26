@@ -10,6 +10,7 @@ Features are:
  - Cross validation with included Python decoder 
  - Modular design for easy modification and extension
 
+See full documentation at http://openofdm.readthedocs.io.
 
 Environment Setup
 -----------------

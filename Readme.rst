@@ -34,3 +34,30 @@ License
 -------
 
 `Apache License 2.0 <https://www.apache.org/licenses/LICENSE-2.0>`_
+
+FAQs
+----
+
+**Q: Is there any need to change host driver UHD to incorporate new changes in
+FPGA?**
+
+A: No. In fact OpenOFDM relies on the current UHD-USRP communication mechanism.
+However, since the logic of the FPGA is changed in OpenOFDM, its behavior is
+also different. For instance, utilities such as ``rx_samples_to_file`` do not
+work as expected since the FPGA in OpenOFDM does not dumping RF signals back to
+host.
+
+**Q: Any example code to communicate with OFDM core in FPGA from host?**
+
+A: OpenOFDM FPGA module is configurable via USRP user setting registers
+(``set_user_reg`` function). The
+register address definition is in `common_params.v
+<https://github.com/jhshi/openofdm/blob/master/verilog/common_params.v>`_. The
+whole OpenOFM FPGA module takes 32 bit I/Q samples and outputs decoded bytes. It
+is supposed to be placed in the receive chain of the USRP (e.g.,
+``custom_dsp_rx.v``.
+
+
+**Q: Is there any change in ZPU firmware?**
+
+A: No.

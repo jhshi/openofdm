@@ -6,6 +6,7 @@ module ofdm_decoder
 
     input [31:0] sample_in,
     input sample_in_strobe,
+    input soft_decoding,
 
     // decode instructions
     input [7:0] rate,
@@ -15,7 +16,7 @@ module ofdm_decoder
     (* mark_debug = "false" *) output [5:0] demod_out,
     (* mark_debug = "false" *) output demod_out_strobe,
 
-    (* mark_debug = "false" *) output [3:0] deinterleave_erase_out,
+    (* mark_debug = "false" *) output [7:0] deinterleave_erase_out,
     (* mark_debug = "false" *) output deinterleave_erase_out_strobe,
 
     (* mark_debug = "false" *) output conv_decoder_out,
@@ -27,6 +28,9 @@ module ofdm_decoder
     output [7:0] byte_out,
     output byte_out_strobe
 );
+
+wire [5:0] demod_soft_bits;
+wire [3:0] demod_soft_bits_pos;
 
 reg conv_in_stb, conv_in_stb_dly, do_descramble_dly;
 reg [2:0] conv_in0, conv_in0_dly;
@@ -42,7 +46,7 @@ wire vit_clr = reset;
 reg vit_clr_dly;
 wire vit_rdy;
 
-wire [1:0] deinterleave_out;
+wire [5:0] deinterleave_out;
 wire deinterleave_out_strobe;
 wire [1:0] erase;
 
@@ -67,6 +71,8 @@ demodulate demod_inst (
     .cons_q(input_q),
     .input_strobe(sample_in_strobe),
     .bits(demod_out),
+    .soft_bits(demod_soft_bits),
+    .soft_bits_pos(demod_soft_bits_pos),
     .output_strobe(demod_out_strobe)
 );
 
@@ -77,7 +83,10 @@ deinterleave deinterleave_inst (
 
     .rate(rate),
     .in_bits(demod_out),
+    .soft_in_bits(demod_soft_bits),
+    .soft_in_bits_pos(demod_soft_bits_pos),
     .input_strobe(demod_out_strobe),
+    .soft_decoding(soft_decoding),
 
     .out_bits(deinterleave_out),
     .output_strobe(deinterleave_out_strobe),
@@ -164,8 +173,8 @@ always @(posedge clock) begin
         //if (!flush) begin
         if (!(deinter_out_count >= num_bits_to_decode)) begin
             conv_in_stb <= deinterleave_out_strobe;
-            conv_in0 <= deinterleave_out[0]? 3'b111: 3'b011;
-            conv_in1 <= deinterleave_out[1]? 3'b111: 3'b011;
+            conv_in0 <= deinterleave_out[2:0];
+            conv_in1 <= deinterleave_out[5:3];
             conv_erase <= erase;
         end else begin
             conv_in_stb <= 1;

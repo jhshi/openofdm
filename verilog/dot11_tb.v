@@ -29,7 +29,7 @@ wire equalizer_out_strobe;
 wire [5:0] demod_out;
 wire demod_out_strobe;
 
-wire [3:0] deinterleave_erase_out;
+wire [7:0] deinterleave_erase_out;
 wire deinterleave_erase_out_strobe;
 
 wire conv_decoder_out;
@@ -234,7 +234,7 @@ always @(posedge clock) begin
         end
 
         if (dot11_state == S_DECODE_DATA && deinterleave_erase_out_strobe) begin
-            $fwrite(deinterleave_erase_out_fd, "%b %b %b %b\n", deinterleave_erase_out[0], deinterleave_erase_out[1], deinterleave_erase_out[2],  deinterleave_erase_out[3]);
+            $fwrite(deinterleave_erase_out_fd, "%b %b %b %b %b %b %b %b\n", deinterleave_erase_out[0], deinterleave_erase_out[1], deinterleave_erase_out[2],  deinterleave_erase_out[3], deinterleave_erase_out[4], deinterleave_erase_out[5], deinterleave_erase_out[6],  deinterleave_erase_out[7]);
             $fflush(deinterleave_erase_out_fd);
         end
 

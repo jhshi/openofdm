@@ -19,6 +19,7 @@ module dot11 (
     // INPUT: I/Q sample
     (* mark_debug = "true" *) input [31:0] sample_in,
     (* mark_debug = "true" *) input sample_in_strobe,
+    (* mark_debug = "true" *) input soft_decoding,
 
     // OUTPUT: bytes and FCS status
     (* mark_debug = "true" *) output reg demod_is_ongoing,
@@ -93,7 +94,7 @@ module dot11 (
     output [5:0] demod_out,
     output demod_out_strobe,
 
-    output [3:0] deinterleave_erase_out,
+    output [7:0] deinterleave_erase_out,
     output deinterleave_erase_out_strobe,
 
     output conv_decoder_out,
@@ -369,6 +370,7 @@ ofdm_decoder ofdm_decoder_inst (
 
     .sample_in({ofdm_in_i, ofdm_in_q}),
     .sample_in_strobe(ofdm_in_stb),
+    .soft_decoding(soft_decoding),
 
     .do_descramble(do_descramble),
     .num_bits_to_decode(num_bits_to_decode),

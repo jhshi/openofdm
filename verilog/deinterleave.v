@@ -24,7 +24,7 @@ wire [5:0] half_data_carrier = ht? 26: 24;
 reg [5:0] addra;
 reg [5:0] addrb;
 
-reg [10:0] lut_key;
+reg [11:0] lut_key;
 wire [21:0] lut_out;
 wire [21:0] lut_out_delayed;
 
@@ -85,7 +85,7 @@ localparam S_INPUT = 0;
 localparam S_GET_BASE = 1;
 localparam S_OUTPUT = 2;
 
-reg [1:0] state;
+(* mark_debug = "true" *) reg [1:0] state;
 
 always @(posedge clock) begin
     if (reset) begin
@@ -108,7 +108,7 @@ always @(posedge clock) begin
             S_INPUT: begin
                 if (input_strobe) begin
                     if (addra == half_data_carrier-1) begin
-                        lut_key <= {6'b0, ht, rate[3:0]};
+                        lut_key <= {7'b0, ht, rate[3:0]};
                         ram_delay <= 0;
                         lut_valid <= 0;
                         state <= S_GET_BASE;

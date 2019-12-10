@@ -12,17 +12,17 @@ module ofdm_decoder
     input do_descramble,
     input [31:0] num_bits_to_decode,
 
-    output [5:0] demod_out,
-    output demod_out_strobe,
+    (* mark_debug = "false" *) output [5:0] demod_out,
+    (* mark_debug = "false" *) output demod_out_strobe,
 
-    output [1:0] deinterleave_out,
-    output deinterleave_out_strobe,
+    (* mark_debug = "false" *) output [3:0] deinterleave_erase_out,
+    (* mark_debug = "false" *) output deinterleave_erase_out_strobe,
 
-    output conv_decoder_out,
-    output conv_decoder_out_stb,
+    (* mark_debug = "false" *) output conv_decoder_out,
+    (* mark_debug = "false" *) output conv_decoder_out_stb,
 
-    output descramble_out,
-    output descramble_out_strobe,
+    (* mark_debug = "false" *) output descramble_out,
+    (* mark_debug = "false" *) output descramble_out_strobe,
 
     output [7:0] byte_out,
     output byte_out_strobe
@@ -37,11 +37,13 @@ wire [15:0] input_i = sample_in[31:16];
 wire [15:0] input_q = sample_in[15:0];
 
 wire vit_ce = reset | (enable & conv_in_stb) | conv_in_stb_dly;
-
+//wire vit_ce = 1'b1 ;
 wire vit_clr = reset;
 reg vit_clr_dly;
 wire vit_rdy;
 
+wire [1:0] deinterleave_out;
+wire deinterleave_out_strobe;
 wire [1:0] erase;
 
 // assign conv_decoder_out_stb = vit_ce & vit_rdy;
@@ -51,8 +53,10 @@ reg bit_in;
 reg bit_in_stb;
 
 reg [31:0] deinter_out_count;
-reg flush;
+//reg flush;
 
+assign deinterleave_erase_out = {erase,deinterleave_out};
+assign deinterleave_erase_out_strobe = deinterleave_out_strobe;
 demodulate demod_inst (
     .clock(clock),
     .reset(reset),
@@ -79,9 +83,21 @@ deinterleave deinterleave_inst (
     .output_strobe(deinterleave_out_strobe),
     .erase(erase)
 );
-
+/*
+viterbi_v7_0 viterbi_inst (
+    .clk(clock),
+    .ce(vit_ce),
+    .sclr(vit_clr),
+    .data_in0(conv_in0),
+    .data_in1(conv_in1),
+    .erase(conv_erase),
+    .rdy(vit_rdy),
+    .data_out(conv_decoder_out)
+);
+*/
 wire m_axis_data_tvalid ;
-
+//reg [4:0] idle_wire_5bit ;
+//wire [6:0] idle_wire_7bit ; 
 viterbi_v7_0 viterbi_inst (
   .aclk(clock),                              // input wire aclk
   .aresetn(~vit_clr),                        // input wire aresetn
@@ -93,7 +109,6 @@ viterbi_v7_0 viterbi_inst (
   .m_axis_data_tdata({idle_wire_7bit, conv_decoder_out}),    // output wire [7 : 0] m_axis_data_tdata
   .m_axis_data_tvalid(m_axis_data_tvalid)  // output wire m_axis_data_tvalid
 );
-
 
 descramble decramble_inst (
     .clock(clock),
@@ -132,20 +147,22 @@ always @(posedge clock) begin
         skip_bit <= 9;
         bit_in_stb <= 0;
 
-        flush <= 0;
+        //flush <= 0;
         deinter_out_count <= 0;
     end else if (enable) begin
         if (deinterleave_out_strobe) begin
             deinter_out_count <= deinter_out_count + 2;
-        end else begin
+        end //else begin
             // wait for finishing deinterleaving current symbol
             // only do flush for non-DATA bits, such as SIG and HT-SIG, which
             // are not scrambled
-            if (~do_descramble && deinter_out_count >= num_bits_to_decode) begin
-                flush <= 1;
-            end
-        end
-        if (!flush) begin
+            //if (~do_descramble && deinter_out_count >= num_bits_to_decode) begin
+            //if (deinter_out_count >= num_bits_to_decode) begin // careful! deinter_out_count is only correct from 6M ~ 48M! under 54M, it should be 2*216, but actual value is 288!
+                //flush <= 1;
+            //end
+        //end
+        //if (!flush) begin
+        if (!(deinter_out_count >= num_bits_to_decode)) begin
             conv_in_stb <= deinterleave_out_strobe;
             conv_in0 <= deinterleave_out[0]? 3'b111: 3'b011;
             conv_in1 <= deinterleave_out[1]? 3'b111: 3'b011;

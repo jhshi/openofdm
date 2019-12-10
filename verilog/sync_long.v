@@ -18,7 +18,7 @@ module sync_long (
     output reg [31:0] sample_out,
     output reg sample_out_strobe,
 
-    output reg [2:0] state
+    (* mark_debug = "true" *) output reg [2:0] state
 );
 `include "common_params.v"
 
@@ -26,13 +26,13 @@ localparam IN_BUF_LEN_SHIFT = 8;
 
 localparam NUM_STS_TAIL = 32;
 
-(* mark_debug = "true" *) reg [15:0] in_offset;
-(* mark_debug = "true" *) reg [IN_BUF_LEN_SHIFT-1:0] in_waddr;
-(* mark_debug = "true" *) reg [IN_BUF_LEN_SHIFT-1:0] in_raddr;
-(* mark_debug = "true" *) wire [IN_BUF_LEN_SHIFT-1:0] gi_skip = short_gi? 9: 17;
-(* mark_debug = "true" *) reg signed [31:0] num_input_produced;
-(* mark_debug = "true" *) reg signed [31:0] num_input_consumed;
-(* mark_debug = "true" *) reg signed [31:0] num_input_avail;
+reg [15:0] in_offset;
+reg [IN_BUF_LEN_SHIFT-1:0] in_waddr;
+reg [IN_BUF_LEN_SHIFT-1:0] in_raddr;
+wire [IN_BUF_LEN_SHIFT-1:0] gi_skip = short_gi? 9: 17;
+reg signed [31:0] num_input_produced;
+reg signed [31:0] num_input_consumed;
+reg signed [31:0] num_input_avail;
 
 reg [2:0] mult_stage;
 reg [1:0] sum_stage;
@@ -51,7 +51,7 @@ reg signed [31:0] phase_correction;
 reg signed [31:0] next_phase_correction;
 
 reg reset_delay ; // add reset signal for fft, somehow all kinds of event flag raises when feeding real rf signal, maybe reset will help
-(* mark_debug = "true" *) wire fft_resetn ;
+wire fft_resetn ;
 
 always @(posedge clock) begin
     reset_delay = reset ;
@@ -75,7 +75,7 @@ reg [31:0] metric_max1;
 reg [(IN_BUF_LEN_SHIFT-1):0] addr1;
 reg [31:0] metric_max2;
 reg [(IN_BUF_LEN_SHIFT-1):0] addr2;
-(* mark_debug = "true" *) reg [15:0] gap;
+reg [15:0] gap;
 
 reg [31:0] cross_corr_buf[0:15];
 
@@ -124,27 +124,37 @@ localparam S_WAIT_FOR_SECOND_PEAK = 2;
 localparam S_IDLE = 3;
 localparam S_FFT = 4;
 
-(* mark_debug = "true" *) reg fft_start;
-(* mark_debug = "true" *) wire fft_in_stb;
-(* mark_debug = "true" *) reg fft_loading;
-(* mark_debug = "true" *) wire signed [15:0] fft_in_re;
-(* mark_debug = "true" *) wire signed [15:0] fft_in_im;
-(* mark_debug = "true" *) wire [22:0] fft_out_re;
-(* mark_debug = "true" *) wire [22:0] fft_out_im;
-(* mark_debug = "true" *) wire fft_ready;
-(* mark_debug = "true" *) wire fft_done;
-(* mark_debug = "true" *) wire fft_busy;
-(* mark_debug = "true" *) wire fft_valid;
+reg fft_start;
+//wire fft_start_delayed;
+
+(* mark_debug = "false" *) wire fft_in_stb;
+(* mark_debug = "false" *) reg fft_loading;
+(* mark_debug = "false" *) wire signed [15:0] fft_in_re;
+(* mark_debug = "false" *) wire signed [15:0] fft_in_im;
+(* mark_debug = "false" *) wire [22:0] fft_out_re;
+(* mark_debug = "false" *) wire [22:0] fft_out_im;
+(* mark_debug = "false" *) wire fft_ready;
+(* mark_debug = "false" *) wire fft_done;
+(* mark_debug = "false" *) wire fft_busy;
+(* mark_debug = "false" *) wire fft_valid;
 
 wire [31:0] fft_out = {fft_out_re[22:7], fft_out_im[22:7]};
 
-(* mark_debug = "true" *) wire signed [15:0] raw_i;
-(* mark_debug = "true" *) wire signed [15:0] raw_q;
-(* mark_debug = "true" *) reg raw_stb;
+wire signed [15:0] raw_i;
+wire signed [15:0] raw_q;
+reg raw_stb;
 wire idle_line1, idle_line2 ;
-(* mark_debug = "true" *) wire fft_din_data_tlast_delayed ;
-(* mark_debug = "true" *) reg fft_din_data_tlast ;
-(* mark_debug = "true" *) wire m_axis_data_tlast, s_axis_config_tready, event_frame_started, event_tlast_unexpected, event_tlast_missing, event_status_channel_halt, event_data_in_channel_halt, event_data_out_channel_halt;
+reg fft_din_data_tlast ;
+(* mark_debug = "false" *) wire fft_din_data_tlast_delayed ;
+(* mark_debug = "false" *) wire event_frame_started;
+(* mark_debug = "false" *) wire event_tlast_unexpected;
+(* mark_debug = "false" *) wire event_tlast_missing;
+(* mark_debug = "false" *) wire event_status_channel_halt;
+(* mark_debug = "false" *) wire event_data_in_channel_halt;
+(* mark_debug = "false" *) wire event_data_out_channel_halt;
+(* mark_debug = "false" *) wire s_axis_config_tready;
+(* mark_debug = "false" *) wire m_axis_data_tlast;
+
 ram_2port  #(.DWIDTH(32), .AWIDTH(IN_BUF_LEN_SHIFT)) in_buf (
     .clka(clock),
     .ena(1),
@@ -186,27 +196,44 @@ delayT #(.DATA_WIDTH(1), .DELAY(10)) fft_delay_inst (
     .data_out(fft_din_data_tlast_delayed)
 );
 
+///the fft7_1 isntance is commented out, as it is upgraded to fft9 version
+/*xfft_v7_1 dft_inst (
+    .clk(clock),
+    .fwd_inv(1),
+    .start(fft_start_delayed),
+    .fwd_inv_we(1),
+
+    .xn_re(fft_in_re),
+    .xn_im(fft_in_im),
+    .xk_re(fft_out_re),
+    .xk_im(fft_out_im),
+    .rfd(fft_ready),
+    .done(fft_done),
+    .busy(fft_busy),
+    .dv(fft_valid)
+);*/
+
 
 xfft_v9 dft_inst (
-  .aclk(clock),       							
+  .aclk(clock),       // input wire aclk
   .aresetn(fft_resetn),                                               
-  .s_axis_config_tdata({7'b0, 1'b1}),                          		// input wire [7 : 0] s_axis_config_tdata, use LSB to indicate it is forward transform, the rest should be ignored
-  .s_axis_config_tvalid(1'b1),                                 		// input wire s_axis_config_tvalid
-  .s_axis_config_tready(s_axis_config_tready),                		// output wire s_axis_config_tready
-  .s_axis_data_tdata({fft_in_im, fft_in_re}),                  		// input wire [31 : 0] s_axis_data_tdata
-  .s_axis_data_tvalid(fft_in_stb),                    			// input wire s_axis_data_tvalid
-  .s_axis_data_tready(fft_ready),                    			// output wire s_axis_data_tready
-  .s_axis_data_tlast(fft_din_data_tlast_delayed),               	// input wire s_axis_data_tlast
-  .m_axis_data_tdata({idle_line1,fft_out_im, idle_line2, fft_out_re}),  // output wire [47 : 0] m_axis_data_tdata
-  .m_axis_data_tvalid(fft_valid),                    			// output wire m_axis_data_tvalid
-  .m_axis_data_tready(1'b1),                    			// input wire m_axis_data_tready
-  .m_axis_data_tlast(m_axis_data_tlast),                      		// output wire m_axis_data_tlast
-  .event_frame_started(event_frame_started),                  		// output wire event_frame_started
-  .event_tlast_unexpected(event_tlast_unexpected),            		// output wire event_tlast_unexpected
-  .event_tlast_missing(event_tlast_missing),                  		// output wire event_tlast_missing
-  .event_status_channel_halt(event_status_channel_halt),      		// output wire event_status_channel_halt
-  .event_data_in_channel_halt(event_data_in_channel_halt),    		// output wire event_data_in_channel_halt
-  .event_data_out_channel_halt(event_data_out_channel_halt)  		// output wire event_data_out_channel_halt
+  .s_axis_config_tdata({7'b0, 1'b1}),                          // input wire [7 : 0] s_axis_config_tdata, use LSB to indicate it is forward transform, the rest should be ignored
+  .s_axis_config_tvalid(1'b1),                                 // input wire s_axis_config_tvalid
+  .s_axis_config_tready(s_axis_config_tready),                // output wire s_axis_config_tready
+  .s_axis_data_tdata({fft_in_im, fft_in_re}),                      // input wire [31 : 0] s_axis_data_tdata
+  .s_axis_data_tvalid(fft_in_stb),                    // input wire s_axis_data_tvalid
+  .s_axis_data_tready(fft_ready),                    // output wire s_axis_data_tready
+  .s_axis_data_tlast(fft_din_data_tlast_delayed),                      // input wire s_axis_data_tlast
+  .m_axis_data_tdata({idle_line1,fft_out_im, idle_line2, fft_out_re}),                      // output wire [47 : 0] m_axis_data_tdata
+  .m_axis_data_tvalid(fft_valid),                    // output wire m_axis_data_tvalid
+  .m_axis_data_tready(1'b1),                    // input wire m_axis_data_tready
+  .m_axis_data_tlast(m_axis_data_tlast),                      // output wire m_axis_data_tlast
+  .event_frame_started(event_frame_started),                  // output wire event_frame_started
+  .event_tlast_unexpected(event_tlast_unexpected),            // output wire event_tlast_unexpected
+  .event_tlast_missing(event_tlast_missing),                  // output wire event_tlast_missing
+  .event_status_channel_halt(event_status_channel_halt),      // output wire event_status_channel_halt
+  .event_data_in_channel_halt(event_data_in_channel_halt),    // output wire event_data_in_channel_halt
+  .event_data_out_channel_halt(event_data_out_channel_halt)  // output wire event_data_out_channel_halt
 );
 
 reg [15:0] num_sample;

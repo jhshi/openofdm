@@ -6,9 +6,16 @@ module dot11 (
     input reset,
 
     // setting registers
-    input set_stb,
-    input [7:0] set_addr,
-    input [31:0] set_data,
+    //input set_stb,
+    //input [7:0] set_addr,
+    //input [31:0] set_data,
+    
+    // add ports for register based inputs
+    input [15:0] power_thres,
+    input [15:0] window_size,
+    input [31:0] num_sample_to_skip,
+    input num_sample_changed,
+    input [31:0] min_plateau,
 
     // INPUT: I/Q sample
     input [31:0] sample_in,
@@ -23,6 +30,8 @@ module dot11 (
     output [7:0] byte_out,
     output reg fcs_out_strobe,
     output reg fcs_ok,
+    output wire [63:0] data_out,
+    output wire data_out_valid,
 
     /////////////////////////////////////////////////////////
     // DEBUG PORTS
@@ -35,6 +44,7 @@ module dot11 (
 
     // power trigger
     output power_trigger,
+    output [1:0] pw_state_spy,
 
     // sync short
     output short_preamble_detected,
@@ -61,6 +71,8 @@ module dot11 (
     output legacy_sig_parity,
     output legacy_sig_parity_ok,
     output [5:0] legacy_sig_tail,
+    output [23:0] sig_bits_spy,
+    output [31:0] byte_count_spy,
 
     // ht signal info
     output reg ht_sig_stb,
@@ -160,10 +172,10 @@ phase phase_inst (
 ////////////////////////////////////////////////////////////////////////////////
 
 
-reg sync_short_reset;
-reg sync_long_reset;
-wire sync_short_enable = state == S_SYNC_SHORT;
-reg sync_long_enable;
+(* mark_debug = "true" *) reg sync_short_reset;
+(* mark_debug = "true" *) reg sync_long_reset;
+(* mark_debug = "true" *) wire sync_short_enable = state == S_SYNC_SHORT;
+(* mark_debug = "true" *) reg sync_long_enable;
 
 reg equalizer_reset;
 reg equalizer_enable;
@@ -197,6 +209,8 @@ assign state_changed = state != old_state;
 // SIGNAL information
 reg [23:0] signal_bits;
 reg [31:0] byte_count;
+assign sig_bits_spy = signal_bits;
+assign byte_count_spy = byte_count ;
 
 assign legacy_rate = signal_bits[3:0];
 assign legacy_sig_rsvd = signal_bits[4];
@@ -262,10 +276,12 @@ power_trigger power_trigger_inst (
     .sample_in(sample_in),
     .sample_in_strobe(sample_in_strobe),
 
-    .set_stb(set_stb),
-    .set_addr(set_addr),
-    .set_data(set_data),
+    .power_thres(power_thres),
+    .window_size(window_size),
+    .num_sample_to_skip(num_sample_to_skip),
+    .num_sample_changed(num_sample_changed),
 
+    .pw_state_spy(pw_state_spy),
     .trigger(power_trigger)
 );
 
@@ -274,10 +290,7 @@ sync_short sync_short_inst (
     .reset(reset | sync_short_reset),
     .enable(enable & sync_short_enable),
 
-    .set_stb(set_stb),
-    .set_addr(set_addr),
-    .set_data(set_data),
-
+    .min_plateau(min_plateau),
     .sample_in(sample_in),
     .sample_in_strobe(sample_in_strobe),
 
@@ -296,10 +309,6 @@ sync_long sync_long_inst (
     .clock(clock),
     .reset(reset | sync_long_reset),
     .enable(enable & sync_long_enable),
-
-    .set_stb(set_stb),
-    .set_addr(set_addr),
-    .set_data(set_data),
 
     .sample_in(sample_in),
     .sample_in_strobe(sample_in_strobe),
@@ -398,6 +407,21 @@ crc32 fcs_inst (
     .data_in(byte_reversed),
     .crc_out(pkt_fcs)
 );
+
+intf_64bit intf64bit_inst (
+    .clock(clock),
+    .reset(reset | sync_short_reset),
+    .enable(enable),
+    .pkt_len(pkt_len),
+    .byte_index(byte_count),
+
+    .byte_in(byte_out),
+    .byte_strobe(byte_out_strobe),
+
+    .data_out(data_out),
+    .output_strobe(data_out_valid)
+);
+    
 
 
 always @(posedge clock) begin
@@ -817,6 +841,7 @@ always @(posedge clock) begin
                     end
                 `endif
                 fcs_out_strobe <= 0;
+                fcs_ok <= 0 ;
                 state <= S_WAIT_POWER_TRIGGER;
             end
 

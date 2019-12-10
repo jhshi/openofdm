@@ -40,9 +40,11 @@ wire descramble_out_strobe;
 wire [3:0] legacy_rate;
 wire legacy_sig_rsvd;
 wire [11:0] legacy_len;
-wire legacy_sig_parity;
+wire legacy_sig_parity, legacy_sig_parity_ok;
 wire [5:0] legacy_sig_tail;
 wire legacy_sig_stb;
+wire [23:0] sig_bits_spy;
+wire [31:0] byte_count_spy;
 reg signal_done;
 
 wire [3:0] dot11_state;
@@ -50,10 +52,16 @@ wire [3:0] dot11_state;
 wire [7:0] byte_out;
 wire byte_out_strobe;
 
+wire [63:0] data_out ;
+wire data_out_valid ;
+
 
 reg set_stb;
 reg [7:0] set_addr;
 reg [31:0] set_data;
+
+
+wire fcs_out_strobe, fcs_ok;
 
 localparam RAM_SIZE = 1<<25;
 
@@ -78,6 +86,11 @@ integer descramble_out_fd;
 integer signal_fd;
 
 integer byte_out_fd;
+
+integer fcs_fd ;
+
+ // spy ports added (lwei)
+wire [1:0] pw_state_spy; 
 
 `ifndef SAMPLE_FILE
 `define SAMPLE_FILE "../testing_inputs/conducted/dot11a_24mbps_qos_data_e4_90_7e_15_2a_16_e8_de_27_90_6e_42.txt"
@@ -131,6 +144,9 @@ initial begin
     signal_fd = $fopen("./sim_out/signal_out.txt", "w");
 
     byte_out_fd = $fopen("./sim_out/byte_out.txt", "w");
+
+    fcs_fd = $fopen("./sim_out/fcs_out.txt", "w");
+    //# 50100; enable = 0 ;
 end
 
 
@@ -227,6 +243,11 @@ always @(posedge clock) begin
             $fflush(byte_out_fd);
         end
 
+        if (fcs_out_strobe) begin
+            $fwrite(fcs_fd, "%d\n", fcs_ok);
+            $fflush(fcs_fd);
+        end
+
     end
 end
 
@@ -234,17 +255,20 @@ dot11 dot11_inst (
     .clock(clock),
     .reset(reset),
     .enable(enable),
-
-    .set_addr(set_addr),
-    .set_stb(set_stb),
-    .set_data(set_data),
-
     .sample_in(sample_in),
     .sample_in_strobe(sample_in_strobe),
-
+    //.set_addr(set_addr),
+    //.set_stb(set_stb),
+    //.set_data(set_data),
+    .power_thres(16'd100),
+    .window_size(16'd80),
+    .num_sample_to_skip(32'd10),
+    .num_sample_changed(1'b0),
+    .min_plateau(32'd100),
     .state(dot11_state),
 
     .power_trigger(power_trigger),
+    .pw_state_spy(pw_state_spy),
     .short_preamble_detected(short_preamble_detected),
 
     .sync_long_metric(sync_long_metric),
@@ -271,13 +295,22 @@ dot11 dot11_inst (
 
     .byte_out(byte_out),
     .byte_out_strobe(byte_out_strobe),
+    
+    .data_out(data_out),
+    .data_out_valid(data_out_valid),
 
     .legacy_rate(legacy_rate),
     .legacy_sig_rsvd(legacy_sig_rsvd),
     .legacy_len(legacy_len),
     .legacy_sig_parity(legacy_sig_parity),
+    .legacy_sig_parity_ok(legacy_sig_parity_ok),
     .legacy_sig_tail(legacy_sig_tail),
-    .legacy_sig_stb(legacy_sig_stb)
+    .legacy_sig_stb(legacy_sig_stb),
+    .sig_bits_spy(sig_bits_spy),
+    .byte_count_spy(byte_count_spy),
+  
+    .fcs_out_strobe(fcs_out_strobe),
+    .fcs_ok(fcs_ok)
 );
 
 endmodule

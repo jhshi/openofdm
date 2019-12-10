@@ -28,22 +28,24 @@ module ofdm_decoder
     output byte_out_strobe
 );
 
-reg conv_in_stb;
-reg [2:0] conv_in0;
-reg [2:0] conv_in1;
-reg [1:0] conv_erase;
+reg conv_in_stb, conv_in_stb_dly, do_descramble_dly;
+reg [2:0] conv_in0, conv_in0_dly;
+reg [2:0] conv_in1, conv_in1_dly;
+reg [1:0] conv_erase, conv_erase_dly;
 
 wire [15:0] input_i = sample_in[31:16];
 wire [15:0] input_q = sample_in[15:0];
 
-wire vit_ce = reset | (enable & conv_in_stb);
+wire vit_ce = reset | (enable & conv_in_stb) | conv_in_stb_dly;
+
 wire vit_clr = reset;
+reg vit_clr_dly;
 wire vit_rdy;
 
 wire [1:0] erase;
 
-assign conv_decoder_out_stb = vit_ce & vit_rdy;
-
+// assign conv_decoder_out_stb = vit_ce & vit_rdy;
+assign conv_decoder_out_stb = m_axis_data_tvalid; // vit_rdy was used as data valid in the old version of the core, which is no longer the case 
 reg [3:0] skip_bit;
 reg bit_in;
 reg bit_in_stb;
@@ -78,15 +80,18 @@ deinterleave deinterleave_inst (
     .erase(erase)
 );
 
+wire m_axis_data_tvalid ;
+
 viterbi_v7_0 viterbi_inst (
-    .clk(clock),
-    .ce(vit_ce),
-    .sclr(vit_clr),
-    .data_in0(conv_in0),
-    .data_in1(conv_in1),
-    .erase(conv_erase),
-    .rdy(vit_rdy),
-    .data_out(conv_decoder_out)
+  .aclk(clock),                              // input wire aclk
+  .aresetn(~vit_clr),                        // input wire aresetn
+  .aclken(vit_ce),                          // input wire aclken
+  .s_axis_data_tdata({5'b0,conv_in1_dly,5'b0,conv_in0_dly}),    // input wire [15 : 0] s_axis_data_tdata
+  .s_axis_data_tuser({6'b0,conv_erase_dly}),    // input wire [7 : 0] s_axis_data_tuser
+  .s_axis_data_tvalid(conv_in_stb_dly),  // input wire s_axis_data_tvalid
+  .s_axis_data_tready(vit_rdy),  // output wire s_axis_data_tready
+  .m_axis_data_tdata({idle_wire_7bit, conv_decoder_out}),    // output wire [7 : 0] m_axis_data_tdata
+  .m_axis_data_tvalid(m_axis_data_tvalid)  // output wire m_axis_data_tvalid
 );
 
 
@@ -153,7 +158,7 @@ always @(posedge clock) begin
         end
 
         if (deinter_out_count > 0) begin
-            if (~do_descramble) begin
+            if (~do_descramble_dly) begin
                 bit_in <= conv_decoder_out;
                 bit_in_stb <= conv_decoder_out_stb;
             end else begin
@@ -171,6 +176,16 @@ always @(posedge clock) begin
             end
         end
     end
+end
+
+// process used to delay things
+// TODO: this is only a temp solution, as tready only rise one clock after ce goes high, delay statically by one clock, in future should take into account tready
+always @(posedge clock) begin
+    conv_in1_dly <= conv_in1;
+    conv_in0_dly <= conv_in0;
+    conv_erase_dly <= conv_erase;
+    conv_in_stb_dly <= conv_in_stb ;
+    do_descramble_dly <= do_descramble;
 end
 
 endmodule

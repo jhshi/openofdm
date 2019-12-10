@@ -3,10 +3,6 @@ module sync_long (
     input reset,
     input enable,
 
-    input set_stb,
-    input [7:0] set_addr,
-    input [31:0] set_data,
-
     input [31:0] sample_in,
     input sample_in_strobe,
     input signed [31:0] phase_offset,
@@ -30,13 +26,13 @@ localparam IN_BUF_LEN_SHIFT = 8;
 
 localparam NUM_STS_TAIL = 32;
 
-reg [15:0] in_offset;
-reg [IN_BUF_LEN_SHIFT-1:0] in_waddr;
-reg [IN_BUF_LEN_SHIFT-1:0] in_raddr;
-wire [IN_BUF_LEN_SHIFT-1:0] gi_skip = short_gi? 9: 17;
-reg signed [31:0] num_input_produced;
-reg signed [31:0] num_input_consumed;
-reg signed [31:0] num_input_avail;
+(* mark_debug = "true" *) reg [15:0] in_offset;
+(* mark_debug = "true" *) reg [IN_BUF_LEN_SHIFT-1:0] in_waddr;
+(* mark_debug = "true" *) reg [IN_BUF_LEN_SHIFT-1:0] in_raddr;
+(* mark_debug = "true" *) wire [IN_BUF_LEN_SHIFT-1:0] gi_skip = short_gi? 9: 17;
+(* mark_debug = "true" *) reg signed [31:0] num_input_produced;
+(* mark_debug = "true" *) reg signed [31:0] num_input_consumed;
+(* mark_debug = "true" *) reg signed [31:0] num_input_avail;
 
 reg [2:0] mult_stage;
 reg [1:0] sum_stage;
@@ -54,6 +50,13 @@ reg sum_stb;
 reg signed [31:0] phase_correction;
 reg signed [31:0] next_phase_correction;
 
+reg reset_delay ; // add reset signal for fft, somehow all kinds of event flag raises when feeding real rf signal, maybe reset will help
+(* mark_debug = "true" *) wire fft_resetn ;
+
+always @(posedge clock) begin
+    reset_delay = reset ;
+end
+assign fft_resetn = (~reset) & (~reset_delay); // make sure resetn is at least 2 clock cycles low 
 
 complex_to_mag #(.DATA_WIDTH(32)) sum_mag_inst (
     .clock(clock),
@@ -72,7 +75,7 @@ reg [31:0] metric_max1;
 reg [(IN_BUF_LEN_SHIFT-1):0] addr1;
 reg [31:0] metric_max2;
 reg [(IN_BUF_LEN_SHIFT-1):0] addr2;
-reg [15:0] gap;
+(* mark_debug = "true" *) reg [15:0] gap;
 
 reg [31:0] cross_corr_buf[0:15];
 
@@ -121,25 +124,27 @@ localparam S_WAIT_FOR_SECOND_PEAK = 2;
 localparam S_IDLE = 3;
 localparam S_FFT = 4;
 
-reg fft_start;
-wire fft_start_delayed;
-wire fft_in_stb;
-reg fft_loading;
-wire signed [15:0] fft_in_re;
-wire signed [15:0] fft_in_im;
-wire [22:0] fft_out_re;
-wire [22:0] fft_out_im;
-wire fft_ready;
-wire fft_done;
-wire fft_busy;
-wire fft_valid;
+(* mark_debug = "true" *) reg fft_start;
+(* mark_debug = "true" *) wire fft_in_stb;
+(* mark_debug = "true" *) reg fft_loading;
+(* mark_debug = "true" *) wire signed [15:0] fft_in_re;
+(* mark_debug = "true" *) wire signed [15:0] fft_in_im;
+(* mark_debug = "true" *) wire [22:0] fft_out_re;
+(* mark_debug = "true" *) wire [22:0] fft_out_im;
+(* mark_debug = "true" *) wire fft_ready;
+(* mark_debug = "true" *) wire fft_done;
+(* mark_debug = "true" *) wire fft_busy;
+(* mark_debug = "true" *) wire fft_valid;
 
 wire [31:0] fft_out = {fft_out_re[22:7], fft_out_im[22:7]};
 
-wire signed [15:0] raw_i;
-wire signed [15:0] raw_q;
-reg raw_stb;
-
+(* mark_debug = "true" *) wire signed [15:0] raw_i;
+(* mark_debug = "true" *) wire signed [15:0] raw_q;
+(* mark_debug = "true" *) reg raw_stb;
+wire idle_line1, idle_line2 ;
+(* mark_debug = "true" *) wire fft_din_data_tlast_delayed ;
+(* mark_debug = "true" *) reg fft_din_data_tlast ;
+(* mark_debug = "true" *) wire m_axis_data_tlast, s_axis_config_tready, event_frame_started, event_tlast_unexpected, event_tlast_missing, event_status_channel_halt, event_data_in_channel_halt, event_data_out_channel_halt;
 ram_2port  #(.DWIDTH(32), .AWIDTH(IN_BUF_LEN_SHIFT)) in_buf (
     .clka(clock),
     .ena(1),
@@ -173,29 +178,35 @@ rotate rotate_inst (
     .output_strobe(fft_in_stb)
 );
 
-delayT #(.DATA_WIDTH(1), .DELAY(9)) fft_delay_inst (
+delayT #(.DATA_WIDTH(1), .DELAY(10)) fft_delay_inst (
     .clock(clock),
     .reset(reset),
 
-    .data_in(fft_start),
-    .data_out(fft_start_delayed)
+    .data_in(fft_din_data_tlast),
+    .data_out(fft_din_data_tlast_delayed)
 );
 
 
-xfft_v7_1 dft_inst (
-    .clk(clock),
-    .fwd_inv(1),
-    .start(fft_start_delayed),
-    .fwd_inv_we(1),
-
-    .xn_re(fft_in_re),
-    .xn_im(fft_in_im),
-    .xk_re(fft_out_re),
-    .xk_im(fft_out_im),
-    .rfd(fft_ready),
-    .done(fft_done),
-    .busy(fft_busy),
-    .dv(fft_valid)
+xfft_v9 dft_inst (
+  .aclk(clock),       							
+  .aresetn(fft_resetn),                                               
+  .s_axis_config_tdata({7'b0, 1'b1}),                          		// input wire [7 : 0] s_axis_config_tdata, use LSB to indicate it is forward transform, the rest should be ignored
+  .s_axis_config_tvalid(1'b1),                                 		// input wire s_axis_config_tvalid
+  .s_axis_config_tready(s_axis_config_tready),                		// output wire s_axis_config_tready
+  .s_axis_data_tdata({fft_in_im, fft_in_re}),                  		// input wire [31 : 0] s_axis_data_tdata
+  .s_axis_data_tvalid(fft_in_stb),                    			// input wire s_axis_data_tvalid
+  .s_axis_data_tready(fft_ready),                    			// output wire s_axis_data_tready
+  .s_axis_data_tlast(fft_din_data_tlast_delayed),               	// input wire s_axis_data_tlast
+  .m_axis_data_tdata({idle_line1,fft_out_im, idle_line2, fft_out_re}),  // output wire [47 : 0] m_axis_data_tdata
+  .m_axis_data_tvalid(fft_valid),                    			// output wire m_axis_data_tvalid
+  .m_axis_data_tready(1'b1),                    			// input wire m_axis_data_tready
+  .m_axis_data_tlast(m_axis_data_tlast),                      		// output wire m_axis_data_tlast
+  .event_frame_started(event_frame_started),                  		// output wire event_frame_started
+  .event_tlast_unexpected(event_tlast_unexpected),            		// output wire event_tlast_unexpected
+  .event_tlast_missing(event_tlast_missing),                  		// output wire event_tlast_missing
+  .event_status_channel_halt(event_status_channel_halt),      		// output wire event_status_channel_halt
+  .event_data_in_channel_halt(event_data_in_channel_halt),    		// output wire event_data_in_channel_halt
+  .event_data_out_channel_halt(event_data_out_channel_halt)  		// output wire event_data_out_channel_halt
 );
 
 reg [15:0] num_sample;
@@ -210,6 +221,7 @@ always @(posedge clock) begin
         end
         do_clear();
         state <= S_SKIPPING;
+        fft_din_data_tlast <= 1'b0;
     end else if (enable) begin
         if (sample_in_strobe && state != S_SKIPPING) begin
             in_waddr <= in_waddr + 1;
@@ -323,8 +335,13 @@ always @(posedge clock) begin
 
                 if (fft_start | fft_loading) begin
                     in_offset <= in_offset + 1;
+                    
+                    if( in_offset == 62) begin
+                        fft_din_data_tlast <= 1'b1;
+                    end
 
                     if (in_offset == 63) begin
+                        fft_din_data_tlast <= 1'b0;
                         fft_loading <= 0;
                         num_ofdm_symbol <= num_ofdm_symbol + 1;
                         if (num_ofdm_symbol > 0) begin

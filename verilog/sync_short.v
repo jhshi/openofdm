@@ -5,9 +5,7 @@ module sync_short (
     input reset,
     input enable,
 
-    input set_stb,
-    input [7:0] set_addr,
-    input [31:0] set_data,
+    input [31:0] min_plateau,
 
     input [31:0] sample_in,
     input sample_in_strobe,
@@ -33,7 +31,7 @@ wire mag_sq_stb;
 
 wire [31:0] mag_sq_avg;
 wire mag_sq_avg_stb;
-reg [31:0] prod_thres;
+(* mark_debug = "true" *) reg [31:0] prod_thres;
 
 wire [31:0] sample_delayed;
 wire sample_delayed_stb;
@@ -56,28 +54,20 @@ wire freq_offset_stb;
 
 reg [31:0] phase_out_neg;
 
-wire [31:0] delay_prod_avg_mag;
-wire delay_prod_avg_mag_stb;
+(* mark_debug = "true" *) wire [31:0] delay_prod_avg_mag;
+(* mark_debug = "true" *) wire delay_prod_avg_mag_stb;
 
-reg [31:0] plateau_count;
+(* mark_debug = "true" *) reg [31:0] plateau_count;
 
 // this is to ensure that the short preambles contains both positive and
 // negative in-phase, to avoid raise false positives when there is a constant
 // power
 reg [31:0] pos_count;
 reg [31:0] min_pos;
-reg has_pos;
+(* mark_debug = "true" *) reg has_pos;
 reg [31:0] neg_count;
 reg [31:0] min_neg;
-reg has_neg;
-
-wire [31:0] min_plateau;
-
-// minimal number of samples that has to exceed plateau threshold to claim
-// a short preamble
-setting_reg #(.my_addr(SR_MIN_PLATEAU), .width(32), .at_reset(100)) sr_0 (
-    .clk(clock), .rst(reset), .strobe(set_stb), .addr(set_addr), .in(set_data),
-    .out(min_plateau), .changed());
+(* mark_debug = "true" *) reg has_neg;
 
 
 complex_to_mag_sq mag_sq_inst (

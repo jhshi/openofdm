@@ -22,7 +22,7 @@ module equalizer
     output reg [31:0] sample_out,
     output reg sample_out_strobe,
     
-    output reg [2:0] state
+    (* mark_debug = "true" *) output reg [2:0] state
 );
 
 
@@ -122,8 +122,8 @@ wire signed [15:0] rot_q;
 wire [31:0] mag_sq;
 wire [31:0] prod_i;
 wire [31:0] prod_q;
-wire [31:0] prod_i_scaled = prod_i<<`CONS_SCALE_SHIFT;
-wire [31:0] prod_q_scaled = prod_q<<`CONS_SCALE_SHIFT;
+wire [31:0] prod_i_scaled = prod_i<<(`CONS_SCALE_SHIFT+1);
+wire [31:0] prod_q_scaled = prod_q<<(`CONS_SCALE_SHIFT+1); // +1 to fix the bug threshold for demodulate.v
 wire prod_stb;
 
 reg [15:0] num_output;

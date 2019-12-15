@@ -5,9 +5,7 @@ module sync_short (
     input reset,
     input enable,
 
-    input set_stb,
-    input [7:0] set_addr,
-    input [31:0] set_data,
+    input [31:0] min_plateau,
 
     input [31:0] sample_in,
     input sample_in_strobe,
@@ -71,13 +69,13 @@ reg [31:0] neg_count;
 reg [31:0] min_neg;
 reg has_neg;
 
-wire [31:0] min_plateau;
+//wire [31:0] min_plateau;
 
 // minimal number of samples that has to exceed plateau threshold to claim
 // a short preamble
-setting_reg #(.my_addr(SR_MIN_PLATEAU), .width(32), .at_reset(100)) sr_0 (
+/*setting_reg #(.my_addr(SR_MIN_PLATEAU), .width(32), .at_reset(100)) sr_0 (
     .clk(clock), .rst(reset), .strobe(set_stb), .addr(set_addr), .in(set_data),
-    .out(min_plateau), .changed());
+    .out(min_plateau), .changed());*/
 
 
 complex_to_mag_sq mag_sq_inst (

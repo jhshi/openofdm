@@ -102,7 +102,7 @@ def do_rate(rate=6, mcs=0, ht=False):
             erase = '5/6'
     else:
         n_bpsc = decode.RATE_PARAMETERS[rate][0]
-        if rate in [9, 18, 36]:
+        if rate in [9, 18, 36, 54]:
             erase = '3/4'
         elif rate == 48:
             erase = '2/3'

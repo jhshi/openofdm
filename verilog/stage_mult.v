@@ -38,44 +38,45 @@ wire signed [31:0] prod_2_q;
 wire signed [31:0] prod_3_i;
 wire signed [31:0] prod_3_q;
 
-complex_multiplier mult_inst1 (
-    .clk(clock),
-    .ar(X0),
-    .ai(X1),
-    .br(Y0),
-    .bi(Y1),
-    .pr(prod_0_i),
-    .pi(prod_0_q)
+complex_multiplier mult_inst (
+  .aclk(clock),                              
+  .s_axis_a_tvalid(input_strobe),        
+  .s_axis_a_tdata({X1,X0}),          
+  .s_axis_b_tvalid(input_strobe),        
+  .s_axis_b_tdata({Y1,Y0}),          
+  .m_axis_dout_tvalid(),  
+  .m_axis_dout_tdata({prod_0_q,prod_0_i})    
 );
 
 complex_multiplier mult_inst2 (
-    .clk(clock),
-    .ar(X2),
-    .ai(X3),
-    .br(Y2),
-    .bi(Y3),
-    .pr(prod_1_i),
-    .pi(prod_1_q)
+  .aclk(clock),                             
+  .s_axis_a_tvalid(input_strobe),       
+  .s_axis_a_tdata({X3,X2}),          
+  .s_axis_b_tvalid(input_strobe),       
+  .s_axis_b_tdata({Y3,Y2}),          
+  .m_axis_dout_tvalid(),  
+  .m_axis_dout_tdata({prod_1_q,prod_1_i})    
 );
 
 complex_multiplier mult_inst3 (
-    .clk(clock),
-    .ar(X4),
-    .ai(X5),
-    .br(Y4),
-    .bi(Y5),
-    .pr(prod_2_i),
-    .pi(prod_2_q)
+  .aclk(clock),                              
+  .s_axis_a_tvalid(input_strobe),        
+  .s_axis_a_tdata({X5,X4}),          
+  .s_axis_b_tvalid(input_strobe),    
+  .s_axis_b_tdata({Y5,Y4}),          
+  .m_axis_dout_tvalid(),  
+  .m_axis_dout_tdata({prod_2_q,prod_2_i})    
 );
 
+
 complex_multiplier mult_inst4 (
-    .clk(clock),
-    .ar(X6),
-    .ai(X7),
-    .br(Y6),
-    .bi(Y7),
-    .pr(prod_3_i),
-    .pi(prod_3_q)
+  .aclk(clock),                              
+  .s_axis_a_tvalid(input_strobe),        
+  .s_axis_a_tdata({X7,X6}),          
+  .s_axis_b_tvalid(input_strobe),    
+  .s_axis_b_tdata({Y7,Y6}),          
+  .m_axis_dout_tvalid(),  
+  .m_axis_dout_tdata({prod_3_q,prod_3_i})   
 );
 
 reg signed [31:0] sum_i1;

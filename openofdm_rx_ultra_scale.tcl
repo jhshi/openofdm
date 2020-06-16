@@ -84,7 +84,7 @@ if { $::argc > 0 } {
 set src_dir "[file normalize "$origin_dir/verilog"]"
 
 # Create project
-create_project ${project_name} ./${project_name} -part xc7z045ffg900-2
+create_project ${project_name} ./${project_name} -part xczu9eg-ffvb1156-2-e
 
 # Set the directory path for the new project
 set proj_dir [get_property directory [current_project]]
@@ -95,7 +95,7 @@ set proj_dir [get_property directory [current_project]]
 # Set project properties
 set obj [current_project]
 set_property -name "board_connections" -value "" -objects $obj
-set_property -name "board_part" -value "xilinx.com:zc706:part0:1.2" -objects $obj
+set_property -name "board_part" -value "xilinx.com:zcu102:part0:3.1" -objects $obj
 set_property -name "compxlib.activehdl_compiled_library_dir" -value "$proj_dir/${project_name}.cache/compile_simlib/activehdl" -objects $obj
 set_property -name "compxlib.funcsim" -value "1" -objects $obj
 set_property -name "compxlib.ies_compiled_library_dir" -value "$proj_dir/${project_name}.cache/compile_simlib/ies" -objects $obj
@@ -137,7 +137,7 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 
 # Set IP repository paths
 set obj [get_filesets sources_1]
-set_property "ip_repo_paths" "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynq"]" $obj
+set_property "ip_repo_paths" "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynquplus"]" $obj
 
 # Rebuild user ip_repo's index before adding any source files
 update_ip_catalog -rebuild
@@ -145,8 +145,8 @@ update_ip_catalog -rebuild
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/complex_multiplier/complex_multiplier.xci"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/atan_lut/atan_lut.xci"]"\
+ "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/complex_multiplier/complex_multiplier.xci"]"\
+ "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/atan_lut/atan_lut.xci"]"\
  "[file normalize "$origin_dir/verilog/bits_to_bytes.v"]"\
  "[file normalize "$origin_dir/verilog/calc_mean.v"]"\
  "[file normalize "$origin_dir/verilog/complex_mult.v"]"\
@@ -159,7 +159,7 @@ set files [list \
  "[file normalize "$origin_dir/verilog/common_defs.v"]"\
  "[file normalize "$origin_dir/verilog/demodulate.v"]"\
  "[file normalize "$origin_dir/verilog/descramble.v"]"\
- "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynq/src/div_gen.v"]"\
+ "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynquplus/src/div_gen.v"]"\
  "[file normalize "$origin_dir/verilog/divider.v"]"\
  "[file normalize "$origin_dir/verilog/dot11.v"]"\
  "[file normalize "$origin_dir/verilog/equalizer.v"]"\
@@ -174,16 +174,16 @@ set files [list \
  "[file normalize "$origin_dir/verilog/sync_long.v"]"\
  "[file normalize "$origin_dir/verilog/sync_short.v"]"\
  "[file normalize "$origin_dir/verilog/openofdm_rx.v"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/deinter_lut/deinter_lut.coe"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/atan_lut/atan_lut.coe"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/rot_lut/rot_lut.coe"]"\
+ "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/deinter_lut/deinter_lut.coe"]"\
+ "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/atan_lut/atan_lut.coe"]"\
+ "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/rot_lut/rot_lut.coe"]"\
  "[file normalize "$origin_dir/../rx_intf/src/byte_to_word_fcs_sn_insert.v"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/viterbi/viterbi_v7_0.xci"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/deinter_lut/deinter_lut.xci"]"\
- "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynq/src/div_gen_div_gen_0_0/div_gen_div_gen_0_0.xci"]"\
- "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynq/src/div_gen_xlslice_0_0/div_gen_xlslice_0_0.xci"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/xfft/xfft_v9.xci"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/rot_lut/rot_lut.xci"]"\
+ "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/viterbi/viterbi_v7_0.xci"]"\
+ "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/deinter_lut/deinter_lut.xci"]"\
+ "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynquplus/src/div_gen_div_gen_0_0/div_gen_div_gen_0_0.xci"]"\
+ "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynquplus/src/div_gen_xlslice_0_0/div_gen_xlslice_0_0.xci"]"\
+ "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/xfft/xfft_v9.xci"]"\
+ "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/rot_lut/rot_lut.xci"]"\
 ]
 # If you want to make a copy of the file to new src folder, use following command
 # set imported_files [import_files -fileset sources_1 $files]
@@ -290,7 +290,7 @@ set_property -name "xsim.simulate.xsim.more_options" -value "" -objects $obj
 
 # Create 'synth_1' run (if not found)
 if {[string equal [get_runs -quiet synth_1] ""]} {
-    create_run -name synth_1 -part xc7z045ffg900-2 -flow {Vivado Synthesis 2018} -strategy "Vivado Synthesis Defaults" -report_strategy {No Reports} -constrset constrs_1
+    create_run -name synth_1 -part xczu9eg-ffvb1156-2-e -flow {Vivado Synthesis 2018} -strategy "Vivado Synthesis Defaults" -report_strategy {No Reports} -constrset constrs_1
 } else {
   set_property strategy "Vivado Synthesis Defaults" [get_runs synth_1]
   set_property flow "Vivado Synthesis 2018" [get_runs synth_1]
@@ -355,7 +355,7 @@ current_run -synthesis [get_runs synth_1]
 
 # Create 'impl_1' run (if not found)
 if {[string equal [get_runs -quiet impl_1] ""]} {
-    create_run -name impl_1 -part xc7z045ffg900-2 -flow {Vivado Implementation 2018} -strategy "Vivado Implementation Defaults" -report_strategy {No Reports} -constrset constrs_1 -parent_run synth_1
+    create_run -name impl_1 -part xczu9eg-ffvb1156-2-e -flow {Vivado Implementation 2018} -strategy "Vivado Implementation Defaults" -report_strategy {No Reports} -constrset constrs_1 -parent_run synth_1
 } else {
   set_property strategy "Vivado Implementation Defaults" [get_runs impl_1]
   set_property flow "Vivado Implementation 2018" [get_runs impl_1]

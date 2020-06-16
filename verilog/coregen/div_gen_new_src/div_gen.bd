@@ -1,0 +1,167 @@
+{
+  "design": {
+    "design_info": {
+      "boundary_crc": "0x6F58D25AB0E3E3E4",
+      "device": "xczu9eg-ffvb1156-2-e",
+      "name": "div_gen",
+      "synth_flow_mode": "Hierarchical",
+      "tool_version": "2018.3",
+      "validated": "true"
+    },
+    "design_tree": {
+      "div_gen_0": "",
+      "xlslice_0": ""
+    },
+    "ports": {
+      "quotient": {
+        "type": "data",
+        "direction": "O",
+        "left": "31",
+        "right": "0",
+        "parameters": {
+          "LAYERED_METADATA": {
+            "value": "undef",
+            "value_src": "default"
+          }
+        }
+      },
+      "dividend": {
+        "type": "data",
+        "direction": "I",
+        "left": "31",
+        "right": "0",
+        "parameters": {
+          "LAYERED_METADATA": {
+            "value": "undef",
+            "value_src": "default"
+          }
+        }
+      },
+      "divisor": {
+        "type": "data",
+        "direction": "I",
+        "left": "23",
+        "right": "0",
+        "parameters": {
+          "LAYERED_METADATA": {
+            "value": "undef",
+            "value_src": "default"
+          }
+        }
+      },
+      "clk": {
+        "type": "clk",
+        "direction": "I",
+        "parameters": {
+          "CLK_DOMAIN": {
+            "value": "div_gen_clk",
+            "value_src": "default"
+          },
+          "FREQ_HZ": {
+            "value": "200000000"
+          },
+          "INSERT_VIP": {
+            "value": "0",
+            "value_src": "default"
+          },
+          "PHASE": {
+            "value": "0.000",
+            "value_src": "default"
+          }
+        }
+      },
+      "input_strobe": {
+        "direction": "I"
+      },
+      "output_strobe": {
+        "direction": "O"
+      }
+    },
+    "components": {
+      "div_gen_0": {
+        "vlnv": "xilinx.com:ip:div_gen:5.1",
+        "xci_name": "div_gen_div_gen_0_0",
+        "parameters": {
+          "dividend_and_quotient_width": {
+            "value": "32"
+          },
+          "divisor_width": {
+            "value": "24"
+          },
+          "fractional_width": {
+            "value": "24"
+          },
+          "latency": {
+            "value": "60"
+          },
+          "remainder_type": {
+            "value": "Fractional"
+          }
+        }
+      },
+      "xlslice_0": {
+        "vlnv": "xilinx.com:ip:xlslice:1.0",
+        "xci_name": "div_gen_xlslice_0_0",
+        "parameters": {
+          "DIN_FROM": {
+            "value": "55"
+          },
+          "DIN_TO": {
+            "value": "24"
+          },
+          "DIN_WIDTH": {
+            "value": "56"
+          },
+          "DOUT_WIDTH": {
+            "value": "1"
+          }
+        }
+      }
+    },
+    "nets": {
+      "xlslice_0_Dout": {
+        "ports": [
+          "xlslice_0/Dout",
+          "quotient"
+        ]
+      },
+      "div_gen_0_m_axis_dout_tdata": {
+        "ports": [
+          "div_gen_0/m_axis_dout_tdata",
+          "xlslice_0/Din"
+        ]
+      },
+      "dividend_1": {
+        "ports": [
+          "dividend",
+          "div_gen_0/s_axis_dividend_tdata"
+        ]
+      },
+      "divisor_1": {
+        "ports": [
+          "divisor",
+          "div_gen_0/s_axis_divisor_tdata"
+        ]
+      },
+      "clk_1": {
+        "ports": [
+          "clk",
+          "div_gen_0/aclk"
+        ]
+      },
+      "input_strobe_1": {
+        "ports": [
+          "input_strobe",
+          "div_gen_0/s_axis_divisor_tvalid",
+          "div_gen_0/s_axis_dividend_tvalid"
+        ]
+      },
+      "div_gen_0_m_axis_dout_tvalid": {
+        "ports": [
+          "div_gen_0/m_axis_dout_tvalid",
+          "output_strobe"
+        ]
+      }
+    }
+  }
+}

@@ -28,7 +28,7 @@ The first module in the pipeline is the :file:`power_trigger.v`. It takes the I/
 samples as input and asserts the ``trigger`` signal during a potential packet
 activity. Optionally, it can be configured to skip the first certain number of
 samples before detecting a power trigger. This is useful to skip the spurious
-signals during the intimal hardware stabilization phase.
+signals during the initial hardware stabilization phase.
 
 The logic of the ``power_trigger`` module is quite simple: after skipping
 certain number of initial samples, it waits for significant power increase and

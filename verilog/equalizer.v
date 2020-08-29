@@ -126,11 +126,44 @@ wire [31:0] prod_i_scaled = prod_i<<(`CONS_SCALE_SHIFT+1);
 wire [31:0] prod_q_scaled = prod_q<<(`CONS_SCALE_SHIFT+1); // +1 to fix the bug threshold for demodulate.v
 wire prod_stb;
 
-reg [15:0] num_output;
-wire [31:0] norm_i;
-wire [31:0] norm_q;
+reg signed [15:0] lts_reg1_i, lts_reg2_i, lts_reg3_i, lts_reg4_i, lts_reg5_i;
+reg signed [15:0] lts_reg1_q, lts_reg2_q, lts_reg3_q, lts_reg4_q, lts_reg5_q;
+wire signed [18:0] lts_sum_1_3_i = lts_reg1_i + lts_reg2_i + lts_reg3_i;
+wire signed [18:0] lts_sum_1_3_q = lts_reg1_q + lts_reg2_q + lts_reg3_q;
+wire signed [18:0] lts_sum_1_4_i = lts_reg1_i + lts_reg2_i + lts_reg3_i + lts_reg4_i;
+wire signed [18:0] lts_sum_1_4_q = lts_reg1_q + lts_reg2_q + lts_reg3_q + lts_reg4_q;
+wire signed [18:0] lts_sum_1_5_i = lts_reg1_i + lts_reg2_i + lts_reg3_i + lts_reg4_i + lts_reg5_i;
+wire signed [18:0] lts_sum_1_5_q = lts_reg1_q + lts_reg2_q + lts_reg3_q + lts_reg4_q + lts_reg5_q;
+wire signed [18:0] lts_sum_2_5_i =              lts_reg2_i + lts_reg3_i + lts_reg4_i + lts_reg5_i;
+wire signed [18:0] lts_sum_2_5_q =              lts_reg2_q + lts_reg3_q + lts_reg4_q + lts_reg5_q;
+wire signed [18:0] lts_sum_3_5_i =                           lts_reg3_i + lts_reg4_i + lts_reg5_i;
+wire signed [18:0] lts_sum_3_5_q =                           lts_reg3_q + lts_reg4_q + lts_reg5_q;
+wire signed [18:0] lts_sum_wo3_i = lts_reg1_i + lts_reg2_i              + lts_reg4_i + lts_reg5_i;
+wire signed [18:0] lts_sum_wo3_q = lts_reg1_q + lts_reg2_q              + lts_reg4_q + lts_reg5_q;
+reg signed [18:0] lts_sum_i;
+reg signed [18:0] lts_sum_q;
 
-wire norm_out_stb;
+reg [2:0] lts_mv_avg_len;
+reg lts_div_in_stb;
+
+wire [31:0] dividend_i = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? (lts_sum_i[18] == 0 ? {13'h0,lts_sum_i} : {13'h1FFF,lts_sum_i})  : (state == S_ADJUST_FREQ_OFFSET ? prod_i_scaled : 0);
+wire [31:0] dividend_q = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? (lts_sum_q[18] == 0 ? {13'h0,lts_sum_q} : {13'h1FFF,lts_sum_q})	  : (state == S_ADJUST_FREQ_OFFSET ? prod_q_scaled : 0);
+wire [23:0] divisor_i = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_OFFSET ? mag_sq[23:0] : 1);
+wire [23:0] divisor_q = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_OFFSET ? mag_sq[23:0] : 1);
+wire div_in_stb = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? lts_div_in_stb : (state == S_ADJUST_FREQ_OFFSET ? prod_out_strobe : 0);
+
+
+reg [15:0] num_output;
+wire [31:0] quotient_i;
+wire [31:0] quotient_q;
+wire [31:0] norm_i = quotient_i;
+wire [31:0] norm_q = quotient_q;
+wire [31:0] lts_div_i = quotient_i;
+wire [31:0] lts_div_q = quotient_q;
+
+wire div_out_stb;
+wire norm_out_stb = div_out_stb;
+wire lts_div_out_stb = div_out_stb;
 
 reg prod_in_strobe;
 wire prod_out_strobe;
@@ -255,12 +288,12 @@ divider norm_i_inst (
     .enable(enable),
     .reset(reset),
 
-    .dividend(prod_i_scaled),
-    .divisor(mag_sq[23:0]),
-    .input_strobe(prod_out_strobe),
+    .dividend(dividend_i),
+    .divisor(divisor_i),
+    .input_strobe(div_in_stb),
 
-    .quotient(norm_i),
-    .output_strobe(norm_out_stb)
+    .quotient(quotient_i),
+    .output_strobe(div_out_stb)
 );
 
 divider norm_q_inst (
@@ -268,19 +301,21 @@ divider norm_q_inst (
     .enable(enable),
     .reset(reset),
 
-    .dividend(prod_q_scaled),
-    .divisor(mag_sq[23:0]),
-    .input_strobe(prod_out_strobe),
+    .dividend(dividend_q),
+    .divisor(divisor_q),
+    .input_strobe(div_in_stb),
 
-    .quotient(norm_q)
+    .quotient(quotient_q)
 );
 
 localparam S_FIRST_LTS = 0;
 localparam S_SECOND_LTS = 1;
-localparam S_GET_POLARITY = 2;
-localparam S_CALC_FREQ_OFFSET = 3;
-localparam S_ADJUST_FREQ_OFFSET = 4;
-localparam S_HT_LTS = 5;
+localparam S_UPDATE_DC_LTS = 2;
+localparam S_MV_AVG_LTS = 3;
+localparam S_GET_POLARITY = 4;
+localparam S_CALC_FREQ_OFFSET = 5;
+localparam S_ADJUST_FREQ_OFFSET = 6;
+localparam S_HT_LTS = 7;
 
 always @(posedge clock) begin
     if (reset) begin
@@ -310,6 +345,12 @@ always @(posedge clock) begin
 
         in_waddr <= 0;
         in_raddr <= 0;
+
+        lts_reg1_i <= 0; lts_reg2_i <= 0; lts_reg3_i <= 0; lts_reg4_i <= 0; lts_reg5_i <= 0;
+        lts_reg1_q <= 0; lts_reg2_q <= 0; lts_reg3_q <= 0; lts_reg4_q <= 0; lts_reg5_q <= 0;
+        lts_sum_i <= 0;
+        lts_sum_q <= 0;
+        lts_div_in_stb <= 0;
 
         phase_in_stb <= 0;
         pilot_sum_i <= 0;
@@ -365,12 +406,93 @@ always @(posedge clock) begin
                 if (lts_in_stb) begin
                     if (lts_waddr == 63) begin
                         lts_waddr <= 0;
-                        state <= S_GET_POLARITY;
+                        lts_raddr <= 62;
+                        lts_in_stb <= 0;
+                        lts_div_in_stb <= 0;
+                        state <= S_UPDATE_DC_LTS;
                     end else begin
                         lts_waddr <= lts_waddr + 1;
                     end
                 end
             end 
+
+            S_UPDATE_DC_LTS: begin
+                if(lts_div_in_stb == 1) begin
+                    lts_div_in_stb <= 0;
+                end else if(lts_raddr == 4) begin
+                    lts_sum_i <= lts_sum_wo3_i;
+                    lts_sum_q <= lts_sum_wo3_q;
+                    lts_mv_avg_len <= 4;
+                    lts_div_in_stb <= 1;
+                    lts_raddr <= 5;
+                end else if(lts_raddr != 5) begin
+                    // LTS Shift register
+                    lts_reg1_i <= lts_i_out; lts_reg2_i <= lts_reg1_i; lts_reg3_i <= lts_reg2_i; lts_reg4_i <= lts_reg3_i; lts_reg5_i <= lts_reg4_i;
+                    lts_reg1_q <= lts_q_out; lts_reg2_q <= lts_reg1_q; lts_reg3_q <= lts_reg2_q; lts_reg4_q <= lts_reg3_q; lts_reg5_q <= lts_reg4_q;
+                    lts_raddr[5:0] <= lts_raddr[5:0] + 1;
+                end else begin
+                    if(lts_in_stb == 1) begin
+                        lts_waddr <= 37;
+                        lts_raddr <= 38;
+                        lts_in_stb <= 0;
+                        state <= S_MV_AVG_LTS;
+                    end else if(lts_div_out_stb == 1) begin
+                        lts_i_in <= lts_div_i[15:0];
+                        lts_q_in <= lts_div_q[15:0];
+                        lts_in_stb <= 1;
+                    end
+                end
+
+            end
+
+            S_MV_AVG_LTS: begin
+                if(lts_raddr == 42) begin
+                    lts_sum_i <= lts_sum_1_3_i;
+                    lts_sum_q <= lts_sum_1_3_q;
+                    lts_mv_avg_len <= 3;
+                    lts_div_in_stb <= 1;
+                end else if(lts_raddr == 43) begin
+                    lts_sum_i <= lts_sum_1_4_i;
+                    lts_sum_q <= lts_sum_1_4_q;
+                    lts_mv_avg_len <= 4;
+                    lts_div_in_stb <= 1;
+                end else if(lts_raddr > 43 || lts_raddr < 29) begin
+                    lts_sum_i <= lts_sum_1_5_i;
+                    lts_sum_q <= lts_sum_1_5_q;
+                    lts_mv_avg_len <= 5;
+                    lts_div_in_stb <= 1;
+                end else if(lts_raddr == 29) begin
+                    lts_sum_i <= lts_sum_2_5_i;
+                    lts_sum_q <= lts_sum_2_5_q;
+                    lts_mv_avg_len <= 4;
+                    lts_div_in_stb <= 1;
+                end else if(lts_raddr == 30) begin
+                    lts_sum_i <= lts_sum_3_5_i;
+                    lts_sum_q <= lts_sum_3_5_q;
+                    lts_mv_avg_len <= 3;
+                    lts_div_in_stb <= 1;
+                end else if(lts_raddr == 31) begin
+                    lts_div_in_stb <= 0;
+                end
+
+                if(lts_raddr >= 38 || lts_raddr <= 30) begin
+                    // LTS Shift register
+                    lts_reg1_i <= lts_i_out; lts_reg2_i <= lts_reg1_i; lts_reg3_i <= lts_reg2_i; lts_reg4_i <= lts_reg3_i; lts_reg5_i <= lts_reg4_i;
+                    lts_reg1_q <= lts_q_out; lts_reg2_q <= lts_reg1_q; lts_reg3_q <= lts_reg2_q; lts_reg4_q <= lts_reg3_q; lts_reg5_q <= lts_reg4_q;
+                    lts_raddr[5:0] <= lts_raddr[5:0] + 1;
+                end
+
+                if(lts_div_out_stb == 1) begin
+                    lts_i_in <= lts_div_i[15:0];
+                    lts_q_in <= lts_div_q[15:0];
+                    lts_waddr[5:0] <= lts_waddr[5:0] + 1;
+                end
+                lts_in_stb <= lts_div_out_stb;
+
+                if(lts_waddr == 26) begin
+                    state <= S_GET_POLARITY;
+                end
+            end
 
             S_GET_POLARITY: begin
                 // obtain the polarity of pilot sub-carriers for next OFDM symbol
@@ -519,8 +641,10 @@ always @(posedge clock) begin
                 if (lts_in_stb) begin
                     if (lts_waddr == 63) begin
                         lts_waddr <= 0;
-                        lts_raddr <= 0;
-                        state <= S_GET_POLARITY;
+                        lts_raddr <= 62;
+                        lts_in_stb <= 0;
+                        lts_div_in_stb <= 0;
+                        state <= S_UPDATE_DC_LTS;
                     end else begin
                         lts_waddr <= lts_waddr + 1;
                     end

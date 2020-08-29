@@ -352,10 +352,10 @@ always @(posedge clock) begin
                     end else begin
                         if (next_phase_correction < -PI) begin
                             phase_correction <= next_phase_correction + DOUBLE_PI;
-                            phase_correction <= next_phase_correction + DOUBLE_PI + phase_offset;
+                            next_phase_correction <= next_phase_correction + DOUBLE_PI + phase_offset;
                         end else begin
                             phase_correction <= next_phase_correction;
-                            phase_correction <= next_phase_correction + phase_offset;
+                            next_phase_correction <= next_phase_correction + phase_offset;
                         end
                     end
                 end

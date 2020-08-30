@@ -17,6 +17,7 @@ module sync_long (
 
     output reg [31:0] sample_out,
     output reg sample_out_strobe,
+    output reg [15:0] num_ofdm_symbol,
 
     output reg [2:0] state
 );
@@ -237,7 +238,6 @@ xfft_v9 dft_inst (
 );
 
 reg [15:0] num_sample;
-reg [15:0] num_ofdm_symbol;
 
 integer i;
 integer j;

@@ -177,7 +177,6 @@ set files [list \
  "[file normalize "$origin_dir/verilog/Xilinx/zynq/deinter_lut/deinter_lut.coe"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynq/atan_lut/atan_lut.coe"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynq/rot_lut/rot_lut.coe"]"\
- "[file normalize "$origin_dir/../rx_intf/src/byte_to_word_fcs_sn_insert.v"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynq/viterbi/viterbi_v7_0.xci"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynq/deinter_lut/deinter_lut.xci"]"\
  "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynq/src/div_gen_div_gen_0_0/div_gen_div_gen_0_0.xci"]"\

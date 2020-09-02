@@ -64,7 +64,7 @@ localparam IN_BUF_LEN_SHIFT = 6;
 
 reg ht;
 reg [5:0] num_data_carrier;
-
+reg [7:0] num_ofdm_sym;
 
 // bit masks
 reg [63:0] lts_ref;
@@ -167,6 +167,89 @@ wire lts_div_out_stb = div_out_stb;
 
 reg prod_in_strobe;
 wire prod_out_strobe;
+
+/*
+// =============save signal to file for matlab bit-true comparison===========
+integer file_open_trigger = 0;
+integer new_lts_fd, phase_offset_pilot_input_fd, phase_offset_lts_input_fd, phase_offset_pilot_fd, phase_offset_pilot_sum_fd, phase_offset_phase_out_fd, rot_out_fd, equalizer_prod_fd, equalizer_prod_scaled_fd, equalizer_mag_sq_fd, equalizer_out_fd;
+
+reg sample_in_strobe_dly;
+wire signed [15:0] norm_i_signed, norm_q_signed;
+assign norm_i_signed = sample_out[31:16];
+assign norm_q_signed = sample_out[15:0];
+
+wire signed [31:0] prod_i_signed, prod_q_signed, prod_i_scaled_signed, prod_q_scaled_signed, phase_out_signed;
+assign prod_i_signed = prod_i;
+assign prod_q_signed = prod_q;
+assign prod_i_scaled_signed = prod_i_scaled;
+assign prod_q_scaled_signed = prod_q_scaled;
+assign phase_out_signed = phase_out;
+
+always @(posedge clock) begin
+    file_open_trigger = file_open_trigger + 1;
+    if (file_open_trigger==1) begin
+        new_lts_fd = $fopen("./new_lts.txt", "w");
+        phase_offset_pilot_input_fd = $fopen("./phase_offset_pilot_input.txt", "w");
+        phase_offset_lts_input_fd = $fopen("./phase_offset_lts_input.txt", "w");
+        phase_offset_pilot_fd = $fopen("./phase_offset_pilot.txt", "w");
+        phase_offset_pilot_sum_fd = $fopen("./phase_offset_pilot_sum.txt", "w");
+        phase_offset_phase_out_fd = $fopen("./phase_offset_phase_out.txt", "w");
+        rot_out_fd = $fopen("./rot_out.txt", "w");
+        equalizer_prod_fd = $fopen("./equalizer_prod.txt", "w");
+        equalizer_prod_scaled_fd = $fopen("./equalizer_prod_scaled.txt", "w");
+        equalizer_mag_sq_fd = $fopen("./equalizer_mag_sq.txt", "w");
+        equalizer_out_fd = $fopen("./equalizer_out.txt", "w");
+    end
+
+    sample_in_strobe_dly <= sample_in_strobe;
+    if (num_ofdm_sym == 1 && state == S_CALC_FREQ_OFFSET && sample_in_strobe_dly == 1 && enable && (~reset) ) begin
+        $fwrite(new_lts_fd, "%d %d\n", lts_i_out, lts_q_out);
+        $fflush(new_lts_fd);
+    end
+
+    if (pilot_in_stb && enable && (~reset) ) begin
+        $fwrite(phase_offset_pilot_input_fd, "%d %d\n", input_i, input_q);
+        $fflush(phase_offset_pilot_input_fd);
+        $fwrite(phase_offset_lts_input_fd, "%d %d\n", lts_i_out, lts_q_out);
+        $fflush(phase_offset_lts_input_fd);
+    end
+
+    if (pilot_out_stb && enable && (~reset) ) begin
+        $fwrite(phase_offset_pilot_fd, "%d %d\n", pilot_i, pilot_q);
+        $fflush(phase_offset_pilot_fd);
+    end
+
+    if (phase_in_stb && enable && (~reset) ) begin
+        $fwrite(phase_offset_pilot_sum_fd, "%d %d\n", pilot_sum_i, pilot_sum_q);
+        $fflush(phase_offset_pilot_sum_fd);
+    end
+
+    if (phase_out_stb && enable && (~reset) ) begin
+        $fwrite(phase_offset_phase_out_fd, "%d\n", phase_out_signed);
+        $fflush(phase_offset_phase_out_fd);
+    end
+
+    if (rot_out_stb && enable && (~reset) ) begin
+        $fwrite(rot_out_fd, "%d %d\n", rot_i, rot_q);
+        $fflush(rot_out_fd);
+    end
+    
+    if (prod_out_strobe && enable && (~reset) ) begin
+        $fwrite(equalizer_prod_fd, "%d %d\n", prod_i_signed, prod_q_signed);
+        $fflush(equalizer_prod_fd);
+        $fwrite(equalizer_prod_scaled_fd, "%d %d\n", prod_i_scaled_signed, prod_q_scaled_signed);
+        $fflush(equalizer_prod_scaled_fd);
+        $fwrite(equalizer_mag_sq_fd, "%d\n", mag_sq);
+        $fflush(equalizer_mag_sq_fd);
+    end
+
+    if (sample_out_strobe && enable && (~reset) ) begin
+        $fwrite(equalizer_out_fd, "%d %d\n", norm_i_signed, norm_q_signed);
+        $fflush(equalizer_out_fd);
+    end
+end
+// ==========end of save signal to file for matlab bit-true comparison===========
+*/
 
 ram_2port #(.DWIDTH(32), .AWIDTH(6)) lts_inst (
     .clka(clock),
@@ -330,6 +413,7 @@ always @(posedge clock) begin
 
         ht <= 0;
         num_data_carrier <= 48;
+        num_ofdm_sym <= 0;
 
         subcarrier_mask <= SUBCARRIER_MASK;
         data_subcarrier_mask <= DATA_SUBCARRIER_MASK;
@@ -522,6 +606,7 @@ always @(posedge clock) begin
                 input_i <= 0;
                 input_q <= 0;
                 lts_raddr <= 0;
+                num_ofdm_sym <= num_ofdm_sym + 1;
                 state <= S_CALC_FREQ_OFFSET;
             end
 

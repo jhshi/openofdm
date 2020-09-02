@@ -25,7 +25,7 @@ if { [info exists ::origin_dir_loc] } {
 }
 
 # Set the project name
-set project_name "openofdm_rx"
+set project_name "openofdm_rx_ultra_scale"
 
 # Use project name variable, if specified in the tcl shell
 if { [info exists ::user_project_name] } {
@@ -33,7 +33,7 @@ if { [info exists ::user_project_name] } {
 }
 
 variable script_file
-set script_file "openofdm_rx.tcl"
+set script_file "openofdm_rx_ultra_scale.tcl"
 
 # Help information for this script
 proc help {} {

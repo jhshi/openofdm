@@ -271,6 +271,7 @@ dot11 dot11_inst (
 
     .power_thres(11'd0),
     .min_plateau(32'd100),
+    .soft_decoding(1'b1),
 
     .rssi_half_db(rssi_half_db),
     .sample_in(sample_in),

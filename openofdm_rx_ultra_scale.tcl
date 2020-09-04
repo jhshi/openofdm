@@ -25,7 +25,7 @@ if { [info exists ::origin_dir_loc] } {
 }
 
 # Set the project name
-set project_name "openofdm_rx"
+set project_name "openofdm_rx_ultra_scale"
 
 # Use project name variable, if specified in the tcl shell
 if { [info exists ::user_project_name] } {
@@ -33,7 +33,7 @@ if { [info exists ::user_project_name] } {
 }
 
 variable script_file
-set script_file "openofdm_rx.tcl"
+set script_file "openofdm_rx_ultra_scale.tcl"
 
 # Help information for this script
 proc help {} {
@@ -177,7 +177,6 @@ set files [list \
  "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/deinter_lut/deinter_lut.coe"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/atan_lut/atan_lut.coe"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/rot_lut/rot_lut.coe"]"\
- "[file normalize "$origin_dir/../rx_intf/src/byte_to_word_fcs_sn_insert.v"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/viterbi/viterbi_v7_0.xci"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/deinter_lut/deinter_lut.xci"]"\
  "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynquplus/src/div_gen_div_gen_0_0/div_gen_div_gen_0_0.xci"]"\

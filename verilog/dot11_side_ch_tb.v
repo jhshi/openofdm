@@ -1,7 +1,34 @@
 `timescale 1ns/1ps
 
-module dot11_tb;
+module dot11_side_ch_tb;
 `include "common_params.v"
+
+localparam integer TSF_TIMER_WIDTH = 64; // according to 802.11 standard
+
+localparam integer GPIO_STATUS_WIDTH = 8;
+localparam integer RSSI_HALF_DB_WIDTH = 11;
+
+localparam integer ADC_PACK_DATA_WIDTH	= 64;
+localparam integer IQ_DATA_WIDTH	=     16;
+localparam integer RSSI_DATA_WIDTH	=     10;
+		
+localparam integer C_S00_AXI_DATA_WIDTH	= 32;
+localparam integer C_S00_AXI_ADDR_WIDTH	= 7;
+
+localparam integer C_S00_AXIS_TDATA_WIDTH	= 64;
+localparam integer C_M00_AXIS_TDATA_WIDTH	= 64;
+		
+localparam integer WAIT_COUNT_BITS = 5;
+localparam integer MAX_NUM_DMA_SYMBOL = 4096; // the fifo depth inside m_axis
+
+function integer clogb2 (input integer bit_depth);                                   
+    begin                                                                              
+    for(clogb2=0; bit_depth>0; clogb2=clogb2+1)                                      
+        bit_depth = bit_depth >> 1;                                                    
+    end                                                                                
+endfunction   
+
+localparam integer MAX_BIT_NUM_DMA_SYMBOL  = clogb2(MAX_NUM_DMA_SYMBOL);
 
 reg clock;
 reg reset;
@@ -47,6 +74,7 @@ reg signal_done;
 
 wire [3:0] dot11_state;
 
+wire pkt_header_valid;
 wire pkt_header_valid_strobe;
 wire [7:0] byte_out;
 wire byte_out_strobe;
@@ -56,6 +84,37 @@ wire [15:0] pkt_len_total;
 wire [15:0] pkt_len;
 // wire [63:0] word_out;
 // wire word_out_strobe;
+
+wire demod_is_ongoing;
+wire ofdm_symbol_eq_out_pulse;
+wire ht_unsupport;
+wire [7:0] pkt_rate;
+wire [(32-1):0] csi;
+wire csi_valid;
+
+wire [31:0] FC_DI;
+wire FC_DI_valid;
+        
+wire [47:0] addr1;
+wire addr1_valid;
+wire [47:0] addr2;
+wire addr2_valid;
+wire [47:0] addr3;
+wire addr3_valid;
+
+wire m_axis_start_1trans;
+wire [63:0] data_to_ps;
+wire data_to_ps_valid;
+wire [12:0] m_axis_data_count;
+wire fulln_to_pl;
+wire M_AXIS_TVALID;
+wire M_AXIS_TLAST;
+
+reg slv_reg_wren_signal;
+reg [4:0] axi_awaddr_core;
+reg m_axis_start_ext_trigger;
+
+reg [3:0] num_eq;
 
 reg set_stb;
 reg [7:0] set_addr;
@@ -86,21 +145,22 @@ integer byte_out_fd;
 
 integer file_i, file_q, file_rssi_half_db, iq_sample_file;
 
-//`define SPEED_100M // comment out this to use 200M
+`define SPEED_100M // remove this to use 200M
 
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_ht_unsupport_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_wrong_ht_sig_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_wrong_sig_openwifi.txt"
-`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_openwifi.txt"
-//`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_6.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
-//`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_52mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
-//`define SAMPLE_FILE "../../../../../testing_inputs/radiated/dot11n_19.5mbps_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_openwifi.txt"
+// `define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_6.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
+// `define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_52mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
+// `define SAMPLE_FILE "../../../../../testing_inputs/radiated/dot11n_19.5mbps_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_58.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
-//`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_65mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt" 
-//`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11a_48mbps_qos_data_e4_90_7e_15_2a_16_e8_de_27_90_6e_42_openwifi.txt"
+// `define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_65mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt" 
+// `define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11a_48mbps_qos_data_e4_90_7e_15_2a_16_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/radiated/ack-ok-openwifi.txt"
+`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_mixed_for_side_ch_openwifi.txt"
 
-`define NUM_SAMPLE 8560
+`define NUM_SAMPLE 18560
 
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/openofdm_tx/PL_100Bytes/54Mbps.txt"
 //`define NUM_SAMPLE 2048
@@ -108,6 +168,10 @@ integer file_i, file_q, file_rssi_half_db, iq_sample_file;
 initial begin
     $dumpfile("dot11.vcd");
     $dumpvars;
+
+    slv_reg_wren_signal = 0;
+    axi_awaddr_core = 0;
+    m_axis_start_ext_trigger = 0;
 
     clock = 0;
     reset = 1;
@@ -170,6 +234,8 @@ always @(posedge clock) begin
         clk_count <= 0;
         sample_in_strobe <= 0;
         addr <= 0;
+        
+        num_eq <= 5;
     end else if (enable) begin
         `ifdef SPEED_100M
     	if (clk_count == 4) begin  // for 100M; 100/20 = 5
@@ -190,6 +256,10 @@ always @(posedge clock) begin
             clk_count <= clk_count + 1;
         end
 
+        if (short_preamble_detected) begin
+            num_eq <= num_eq + 3;
+        end
+        
         if (legacy_sig_stb) begin
         end
 
@@ -285,6 +355,128 @@ always @(posedge clock) begin
     end
 end
 
+side_ch_control # (
+    .TSF_TIMER_WIDTH(TSF_TIMER_WIDTH), // according to 802.11 standard
+
+    .C_S_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
+    .IQ_DATA_WIDTH(IQ_DATA_WIDTH),
+    .C_S_AXIS_TDATA_WIDTH(C_S00_AXIS_TDATA_WIDTH),
+    .MAX_NUM_DMA_SYMBOL(MAX_NUM_DMA_SYMBOL),
+    .MAX_BIT_NUM_DMA_SYMBOL(MAX_BIT_NUM_DMA_SYMBOL)
+) side_ch_control_i (
+    .clk(clock),
+    .rstn(~reset),
+
+	// from pl
+    .tsf_runtime_val(64'd123456),
+    .demod_is_ongoing(demod_is_ongoing),
+    .ofdm_symbol_eq_out_pulse(ofdm_symbol_eq_out_pulse),
+    .ht_unsupport(ht_unsupport),
+    .pkt_rate(pkt_rate),
+    .pkt_len(pkt_len),
+    .csi(csi),
+    .csi_valid(csi_valid),
+    .equalizer(equalizer_out),
+    .equalizer_valid(equalizer_out_strobe),
+
+    .pkt_header_valid(pkt_header_valid),
+    .pkt_header_valid_strobe(pkt_header_valid_strobe),
+    .FC_DI(FC_DI),
+    .FC_DI_valid(FC_DI_valid),
+    .addr1(addr1),
+    .addr1_valid(addr1_valid),
+    .addr2(addr2),
+    .addr2_valid(addr2_valid),
+    .addr3(addr3),
+    .addr3_valid(addr3_valid),
+
+    .fcs_in_strobe(fcs_out_strobe),
+    .fcs_ok(fcs_ok),
+    .block_rx_dma_to_ps(),
+    .block_rx_dma_to_ps_valid(),
+
+	// from arm
+    .slv_reg_wren_signal(slv_reg_wren_signal), // to capture m axis num dma symbol write, so that auto trigger start
+    .axi_awaddr_core(axi_awaddr_core),
+    .addr1_target(32'd23343),
+    .match_cfg(1),
+    .num_eq({1'd0, num_eq[2:0]}),
+    .m_axis_start_mode(1),
+    .m_axis_start_ext_trigger(m_axis_start_ext_trigger),
+
+	// s_axis
+    .data_to_pl(),
+    .pl_ask_data(),
+    .s_axis_data_count(),
+    .emptyn_to_pl(),
+
+    .S_AXIS_TVALID(),
+    .S_AXIS_TLAST(),
+
+	// m_axis
+    .m_axis_start_1trans(m_axis_start_1trans),
+
+    .data_to_ps(data_to_ps),
+    .data_to_ps_valid(data_to_ps_valid),
+    .m_axis_data_count(m_axis_data_count),
+    .fulln_to_pl(fulln_to_pl),
+        
+    .M_AXIS_TVALID(M_AXIS_TVALID),
+    .M_AXIS_TLAST(M_AXIS_TLAST)
+);
+
+side_ch_m_axis # (
+    // .WAIT_COUNT_BITS(WAIT_COUNT_BITS),
+    .MAX_NUM_DMA_SYMBOL(MAX_NUM_DMA_SYMBOL),
+    .MAX_BIT_NUM_DMA_SYMBOL(MAX_BIT_NUM_DMA_SYMBOL),
+    .C_M_AXIS_TDATA_WIDTH(C_M00_AXIS_TDATA_WIDTH)
+) side_ch_m_axis_i (
+    .m_axis_endless_mode(0),
+    .M_AXIS_NUM_DMA_SYMBOL(3222-1),
+
+    .m_axis_start_1trans(m_axis_start_1trans),
+
+    .data_to_ps(data_to_ps),
+    .data_to_ps_valid(data_to_ps_valid),
+    .m_axis_data_count(m_axis_data_count),
+    .fulln_to_pl(fulln_to_pl),
+
+    .M_AXIS_ACLK(clock),
+    .M_AXIS_ARESETN( ~reset ),
+    .M_AXIS_TVALID(M_AXIS_TVALID),
+    .M_AXIS_TDATA(),
+    .M_AXIS_TSTRB(),
+    .M_AXIS_TLAST(M_AXIS_TLAST),
+    .M_AXIS_TREADY(1)		
+);
+
+phy_rx_parse phy_rx_parse_inst (
+    .clk(clock),
+    .rstn( ~reset ),
+
+    .ofdm_byte_index(byte_count),
+    .ofdm_byte(byte_out),
+    .ofdm_byte_valid(byte_out_strobe),
+
+    .FC_DI(FC_DI),
+    .FC_DI_valid(FC_DI_valid),
+        
+    .rx_addr(addr1),
+    .rx_addr_valid(addr1_valid),
+        
+    .dst_addr(addr2),
+    .dst_addr_valid(addr2_valid),
+        
+    .tx_addr(addr3),
+    .tx_addr_valid(addr3_valid),
+        
+    .SC(),
+    .SC_valid(),
+        
+    .src_addr(),
+    .src_addr_valid()
+);
+
 dot11 dot11_inst (
     .clock(clock),
     .enable(enable),
@@ -302,7 +494,13 @@ dot11 dot11_inst (
     .sample_in_strobe(sample_in_strobe),
     .soft_decoding(1'b1),
 
+    .demod_is_ongoing(demod_is_ongoing),
+    .pkt_begin(pkt_begin),
+    .pkt_ht(pkt_ht),
+    .pkt_header_valid(pkt_header_valid),
     .pkt_header_valid_strobe(pkt_header_valid_strobe),
+    .ht_unsupport(ht_unsupport),
+    .pkt_rate(pkt_rate),
     .pkt_len(pkt_len),
     .pkt_len_total(pkt_len_total),
     .byte_out_strobe(byte_out_strobe),
@@ -313,26 +511,47 @@ dot11 dot11_inst (
     .fcs_ok(fcs_ok),
 
     .state(dot11_state),
+    .status_code(status_code),
+    .state_changed(state_changed),
+    .state_history(state_history),
 
     .power_trigger(power_trigger),
 
     .short_preamble_detected(short_preamble_detected),
+    .phase_offset(phase_offset),
 
     .sync_long_metric(sync_long_metric),
     .sync_long_metric_stb(sync_long_metric_stb),
     .long_preamble_detected(long_preamble_detected),
     .sync_long_out(sync_long_out),
     .sync_long_out_strobe(sync_long_out_strobe),
+    .sync_long_state(sync_long_state),
 
     .equalizer_out(equalizer_out),
     .equalizer_out_strobe(equalizer_out_strobe),
+    .equalizer_state(equalizer_state),
+    .ofdm_symbol_eq_out_pulse(ofdm_symbol_eq_out_pulse),
 
     .legacy_sig_stb(legacy_sig_stb),
     .legacy_rate(legacy_rate),
     .legacy_sig_rsvd(legacy_sig_rsvd),
     .legacy_len(legacy_len),
     .legacy_sig_parity(legacy_sig_parity),
+    .legacy_sig_parity_ok(legacy_sig_parity_ok),
     .legacy_sig_tail(legacy_sig_tail),
+
+    .ht_sig_stb(ht_sig_stb),
+    .ht_mcs(ht_mcs),
+    .ht_cbw(ht_cbw),
+    .ht_len(ht_len),
+    .ht_smoothing(ht_smoothing),
+    .ht_not_sounding(ht_not_sounding),
+    .ht_aggregation(ht_aggregation),
+    .ht_stbc(ht_stbc),
+    .ht_fec_coding(ht_fec_coding),
+    .ht_sgi(ht_sgi),
+    .ht_num_ext(ht_num_ext),
+    .ht_sig_crc_ok(ht_sig_crc_ok),
 
     .demod_out(demod_out),
     .demod_out_strobe(demod_out_strobe),
@@ -342,6 +561,9 @@ dot11 dot11_inst (
 
     .conv_decoder_out(conv_decoder_out),
     .conv_decoder_out_stb(conv_decoder_out_stb),
+
+    .csi(csi),
+    .csi_valid(csi_valid),
 
     .descramble_out(descramble_out),
     .descramble_out_strobe(descramble_out_strobe)

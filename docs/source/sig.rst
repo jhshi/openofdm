@@ -75,7 +75,7 @@ Quadrature component instead of the In-phase component. Therefore, we check the
 number of samples in which the quadrature component is larger than in-phase, and
 claim a HT-SIG if enough such samples are detected (4 in |project|).
 
-The HG-SIG field spans two OFDM symbols, and has 48 data bits (96 coded bits) in
+The HT-SIG field spans two OFDM symbols, and has 48 data bits (96 coded bits) in
 total. The constellation points are rotated 90 degrees clockwise before
 decoding.
 

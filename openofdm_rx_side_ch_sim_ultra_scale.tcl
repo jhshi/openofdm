@@ -183,8 +183,8 @@ set files [list \
  [file normalize "${origin_dir}/../openwifi-hw/ip/xpu/src/phy_rx_parse.v"] \
  [file normalize "${origin_dir}/../openwifi-hw/ip/side_ch/src/side_ch_control.v"] \
  [file normalize "${origin_dir}/../openwifi-hw/ip/side_ch/src/side_ch_m_axis.v"] \
- [file normalize "${origin_dir}/../openwifi-hw/ip_repo/ultra_scale/fifo64_1clk_dep4k/src/fifo64_1clk_dep4k_fifo_generator_0_0/fifo64_1clk_dep4k_fifo_generator_0_0.xci"]\
- [file normalize "${origin_dir}/../openwifi-hw/ip_repo/ultra_scale/fifo64_1clk_dep4k/src/fifo64_1clk_dep4k.v"]\
+ [file normalize "${origin_dir}/../openwifi-hw/ip_repo/ultra_scale/fifo64_1clk/src/fifo64_1clk_fifo_generator_0_0/fifo64_1clk_fifo_generator_0_0.xci"]\
+ [file normalize "${origin_dir}/../openwifi-hw/ip_repo/ultra_scale/fifo64_1clk/src/fifo64_1clk.v"]\
 ]
 # If you want to make a copy of the file to new src folder, use following command
 # set imported_files [import_files -fileset sources_1 $files]

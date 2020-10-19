@@ -19,7 +19,7 @@ localparam integer C_S00_AXIS_TDATA_WIDTH	= 64;
 localparam integer C_M00_AXIS_TDATA_WIDTH	= 64;
 		
 localparam integer WAIT_COUNT_BITS = 5;
-localparam integer MAX_NUM_DMA_SYMBOL = 4096; // the fifo depth inside m_axis
+localparam integer MAX_NUM_DMA_SYMBOL = 8192; // the fifo depth inside m_axis
 
 function integer clogb2 (input integer bit_depth);                                   
     begin                                                                              
@@ -49,6 +49,7 @@ wire [31:0] sync_long_metric;
 wire sync_long_metric_stb;
 wire long_preamble_detected;
 
+wire [31:0] phase_offset_taken;
 wire [31:0] equalizer_out;
 wire equalizer_out_strobe;
 
@@ -105,16 +106,23 @@ wire addr3_valid;
 wire m_axis_start_1trans;
 wire [63:0] data_to_ps;
 wire data_to_ps_valid;
-wire [12:0] m_axis_data_count;
+wire [(MAX_BIT_NUM_DMA_SYMBOL-1):0] m_axis_data_count;
 wire fulln_to_pl;
 wire M_AXIS_TVALID;
 wire M_AXIS_TLAST;
 
 reg slv_reg_wren_signal;
 reg [4:0] axi_awaddr_core;
-reg m_axis_start_ext_trigger;
 
 reg [3:0] num_eq;
+
+// iq capture configuration
+reg iq_capture;
+reg [3:0] iq_trigger_select;
+reg signed [(RSSI_HALF_DB_WIDTH-1):0] rssi_th;
+reg [(GPIO_STATUS_WIDTH-2):0] gain_th;
+reg [MAX_BIT_NUM_DMA_SYMBOL-1 : 0] pre_trigger_len;
+reg [MAX_BIT_NUM_DMA_SYMBOL-1 : 0] iq_len_target;
 
 reg set_stb;
 reg [7:0] set_addr;
@@ -147,6 +155,11 @@ integer file_i, file_q, file_rssi_half_db, iq_sample_file;
 
 `define SPEED_100M // remove this to use 200M
 
+localparam integer IQ_CAPTURE = 1; //0 -- CSI; 1 -- IQ
+localparam integer IQ_TRIGGER_SELECT = 6;
+localparam integer PRE_TRIGGER_LEN = 3;
+localparam integer IQ_LEN_TARGET = 7;
+
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_ht_unsupport_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_wrong_ht_sig_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_wrong_sig_openwifi.txt"
@@ -171,7 +184,13 @@ initial begin
 
     slv_reg_wren_signal = 0;
     axi_awaddr_core = 0;
-    m_axis_start_ext_trigger = 0;
+
+    iq_capture = IQ_CAPTURE;
+    iq_trigger_select = IQ_TRIGGER_SELECT;
+    rssi_th = 0;
+    gain_th = 0;
+    pre_trigger_len = PRE_TRIGGER_LEN;
+    iq_len_target = IQ_LEN_TARGET;
 
     clock = 0;
     reset = 1;
@@ -357,7 +376,8 @@ end
 
 side_ch_control # (
     .TSF_TIMER_WIDTH(TSF_TIMER_WIDTH), // according to 802.11 standard
-
+    .GPIO_STATUS_WIDTH(GPIO_STATUS_WIDTH),
+    .RSSI_HALF_DB_WIDTH(RSSI_HALF_DB_WIDTH),
     .C_S_AXI_DATA_WIDTH(C_S00_AXI_DATA_WIDTH),
     .IQ_DATA_WIDTH(IQ_DATA_WIDTH),
     .C_S_AXIS_TDATA_WIDTH(C_S00_AXIS_TDATA_WIDTH),
@@ -368,14 +388,21 @@ side_ch_control # (
     .rstn(~reset),
 
 	// from pl
+    .gpio_status(34),
+	.rssi_half_db(54),
     .tsf_runtime_val(64'd123456),
+    .iq(sample_in),
+	.iq_strobe(sample_in_strobe),
     .demod_is_ongoing(demod_is_ongoing),
     .ofdm_symbol_eq_out_pulse(ofdm_symbol_eq_out_pulse),
+    .long_preamble_detected(long_preamble_detected),
+	.short_preamble_detected(short_preamble_detected),
     .ht_unsupport(ht_unsupport),
     .pkt_rate(pkt_rate),
     .pkt_len(pkt_len),
     .csi(csi),
     .csi_valid(csi_valid),
+    .phase_offset_taken(phase_offset_taken),
     .equalizer(equalizer_out),
     .equalizer_valid(equalizer_out_strobe),
 
@@ -398,11 +425,19 @@ side_ch_control # (
 	// from arm
     .slv_reg_wren_signal(slv_reg_wren_signal), // to capture m axis num dma symbol write, so that auto trigger start
     .axi_awaddr_core(axi_awaddr_core),
+    .iq_capture(iq_capture),
+    .iq_trigger_select(iq_trigger_select),
+    .rssi_th(rssi_th),
+    .gain_th(gain_th),
+    .pre_trigger_len(pre_trigger_len),
+    .iq_len_target(iq_len_target),
+    .FC_target(16'd3243),
     .addr1_target(32'd23343),
-    .match_cfg(1),
+    .addr2_target(32'd98765),
+    .match_cfg(0),
     .num_eq({1'd0, num_eq[2:0]}),
     .m_axis_start_mode(1),
-    .m_axis_start_ext_trigger(m_axis_start_ext_trigger),
+    .m_axis_start_ext_trigger(),
 
 	// s_axis
     .data_to_pl(),
@@ -525,6 +560,7 @@ dot11 dot11_inst (
     .long_preamble_detected(long_preamble_detected),
     .sync_long_out(sync_long_out),
     .sync_long_out_strobe(sync_long_out_strobe),
+    .phase_offset_taken(phase_offset_taken),
     .sync_long_state(sync_long_state),
 
     .equalizer_out(equalizer_out),

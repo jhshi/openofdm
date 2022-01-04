@@ -265,7 +265,7 @@ always @(posedge clock) begin
             $fflush(signal_fd);
         end
 
-        if (dot11_state == S_DECODE_DATA && demod_out_strobe) begin
+        if ((dot11_state == S_MPDU_DELIM || dot11_state == S_DECODE_DATA || dot11_state == S_MPDU_PAD) && demod_out_strobe) begin
             $fwrite(demod_out_fd, "%b %b %b %b %b %b\n",demod_out[0],demod_out[1],demod_out[2],demod_out[3],demod_out[4],demod_out[5]);
             $fwrite(demod_soft_bits_fd, "%b %b %b %b %b %b\n",demod_soft_bits[0],demod_soft_bits[1],demod_soft_bits[2],demod_soft_bits[3],demod_soft_bits[4],demod_soft_bits[5]);
             $fwrite(demod_soft_bits_pos_fd, "%b %b %b %b\n",demod_soft_bits_pos[0],demod_soft_bits_pos[1],demod_soft_bits_pos[2],demod_soft_bits_pos[3]);
@@ -274,22 +274,22 @@ always @(posedge clock) begin
             $fflush(demod_soft_bits_pos_fd);
         end
 
-        if (dot11_state == S_DECODE_DATA && deinterleave_erase_out_strobe) begin
+        if ((dot11_state == S_MPDU_DELIM || dot11_state == S_DECODE_DATA || dot11_state == S_MPDU_PAD) && deinterleave_erase_out_strobe) begin
             $fwrite(deinterleave_erase_out_fd, "%b %b %b %b %b %b %b %b\n", deinterleave_erase_out[0], deinterleave_erase_out[1], deinterleave_erase_out[2],  deinterleave_erase_out[3], deinterleave_erase_out[4], deinterleave_erase_out[5], deinterleave_erase_out[6],  deinterleave_erase_out[7]);
             $fflush(deinterleave_erase_out_fd);
         end
 
-        if (dot11_state == S_DECODE_DATA && conv_decoder_out_stb) begin
+        if ((dot11_state == S_MPDU_DELIM || dot11_state == S_DECODE_DATA || dot11_state == S_MPDU_PAD) && conv_decoder_out_stb) begin
             $fwrite(conv_out_fd, "%b\n", conv_decoder_out);
             $fflush(conv_out_fd);
         end
 
-        if (dot11_state == S_DECODE_DATA && descramble_out_strobe) begin
+        if ((dot11_state == S_MPDU_DELIM || dot11_state == S_DECODE_DATA || dot11_state == S_MPDU_PAD) && descramble_out_strobe) begin
             $fwrite(descramble_out_fd, "%b\n", descramble_out);
             $fflush(descramble_out_fd);
         end
 
-        if (dot11_state == S_DECODE_DATA && byte_out_strobe) begin
+        if ((dot11_state == S_MPDU_DELIM || dot11_state == S_DECODE_DATA || dot11_state == S_MPDU_PAD) && byte_out_strobe) begin
             $fwrite(byte_out_fd, "%02x\n", byte_out);
             $fflush(byte_out_fd);
         end

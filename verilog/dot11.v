@@ -394,7 +394,7 @@ equalizer equalizer_inst (
 );
 
 
-delayT #(.DATA_WIDTH(33), .DELAY(6)) eq_delay_inst (
+delayT #(.DATA_WIDTH(33), .DELAY(9)) eq_delay_inst (
     .clock(clock),
     .reset(reset),
 

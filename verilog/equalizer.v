@@ -10,6 +10,7 @@ module equalizer
     input sample_in_strobe,
     input ht_next,
     input pkt_ht,
+    input ht_smoothing,
 
     output [31:0] phase_in_i,
     output [31:0] phase_in_q,
@@ -151,11 +152,11 @@ reg signed [18:0] lts_sum_q;
 reg [2:0] lts_mv_avg_len;
 reg lts_div_in_stb;
 
-wire [31:0] dividend_i = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? (lts_sum_i[18] == 0 ? {13'h0,lts_sum_i} : {13'h1FFF,lts_sum_i})  : (state == S_ADJUST_FREQ_OFFSET ? prod_i_scaled : 0);
-wire [31:0] dividend_q = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? (lts_sum_q[18] == 0 ? {13'h0,lts_sum_q} : {13'h1FFF,lts_sum_q})	  : (state == S_ADJUST_FREQ_OFFSET ? prod_q_scaled : 0);
-wire [23:0] divisor_i = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_OFFSET ? mag_sq[23:0] : 1);
-wire [23:0] divisor_q = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_OFFSET ? mag_sq[23:0] : 1);
-wire div_in_stb = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? lts_div_in_stb : (state == S_ADJUST_FREQ_OFFSET ? prod_out_strobe : 0);
+wire [31:0] dividend_i = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? (lts_sum_i[18] == 0 ? {13'h0,lts_sum_i} : {13'h1FFF,lts_sum_i})  : (state == S_ADJUST_FREQ_OFFSET ? prod_i_scaled : 0);
+wire [31:0] dividend_q = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? (lts_sum_q[18] == 0 ? {13'h0,lts_sum_q} : {13'h1FFF,lts_sum_q})	  : (state == S_ADJUST_FREQ_OFFSET ? prod_q_scaled : 0);
+wire [23:0] divisor_i = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_OFFSET ? mag_sq[23:0] : 1);
+wire [23:0] divisor_q = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_OFFSET ? mag_sq[23:0] : 1);
+wire div_in_stb = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? lts_div_in_stb : (state == S_ADJUST_FREQ_OFFSET ? prod_out_strobe : 0);
 
 
 reg [15:0] num_output;
@@ -401,8 +402,8 @@ divider norm_q_inst (
 
 localparam S_FIRST_LTS = 0;
 localparam S_SECOND_LTS = 1;
-localparam S_UPDATE_DC_LTS = 2;
-localparam S_MV_AVG_LTS = 3;
+localparam S_SMOOTH_CH_DC = 2;
+localparam S_SMOOTH_CH_LTS = 3;
 localparam S_GET_POLARITY = 4;
 localparam S_CALC_FREQ_OFFSET = 5;
 localparam S_ADJUST_FREQ_OFFSET = 6;
@@ -502,14 +503,17 @@ always @(posedge clock) begin
                         lts_raddr <= 62;
                         lts_in_stb <= 0;
                         lts_div_in_stb <= 0;
-                        state <= S_UPDATE_DC_LTS;
+                        // Always smooth legacy channel
+                        state <= S_SMOOTH_CH_DC;
                     end else begin
                         lts_waddr <= lts_waddr + 1;
                     end
                 end
             end 
 
-            S_UPDATE_DC_LTS: begin
+            // 802.11-2012.pdf: 20.3.9.4.3 Table 20-11
+            // channel estimate smoothing (averaging length = 5)
+            S_SMOOTH_CH_DC: begin
                 if(lts_div_in_stb == 1) begin
                     lts_div_in_stb <= 0;
                 end else if(lts_raddr == 4) begin
@@ -528,7 +532,7 @@ always @(posedge clock) begin
                         lts_waddr <= 37;
                         lts_raddr <= 38;
                         lts_in_stb <= 0;
-                        state <= S_MV_AVG_LTS;
+                        state <= S_SMOOTH_CH_LTS;
                     end else if(lts_div_out_stb == 1) begin
                         lts_i_in <= lts_div_i[15:0];
                         lts_q_in <= lts_div_q[15:0];
@@ -538,7 +542,9 @@ always @(posedge clock) begin
 
             end
 
-            S_MV_AVG_LTS: begin
+            // 802.11-2012.pdf: 20.3.9.4.3 Table 20-11
+            // channel estimate smoothing (averaging length = 5)
+            S_SMOOTH_CH_LTS: begin
                 if(lts_raddr == 42) begin
                     lts_sum_i <= lts_sum_1_3_i;
                     lts_sum_q <= lts_sum_1_3_q;
@@ -738,7 +744,12 @@ always @(posedge clock) begin
                         lts_raddr <= 62;
                         lts_in_stb <= 0;
                         lts_div_in_stb <= 0;
-                        state <= S_UPDATE_DC_LTS;
+                        // Depending on smoothing bit in HT-SIG, smooth the channel
+                        if(ht_smoothing) begin
+                            state <= S_SMOOTH_CH_DC;
+                        end else begin
+                            state <= S_GET_POLARITY;
+                        end
                     end else begin
                         lts_waddr <= lts_waddr + 1;
                     end

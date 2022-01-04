@@ -44,7 +44,7 @@ module dot11 (
     
     // decode status
     // (* mark_debug = "true", DONT_TOUCH = "TRUE" *) 
-    output reg [3:0] state,
+    output reg [4:0] state,
     output reg [3:0] status_code,
     output state_changed,
     output reg [31:0] state_history,
@@ -87,7 +87,8 @@ module dot11 (
     output [15:0] ht_len,
     output ht_smoothing,
     output ht_not_sounding,
-    output ht_aggregation,
+    output ht_aggr,
+    output reg ht_aggr_last,
     output [1:0] ht_stbc,
     output ht_fec_coding,
     output ht_sgi,
@@ -234,7 +235,7 @@ reg do_descramble;
 reg [31:0] num_bits_to_decode;
 reg short_gi;
 
-reg [3:0] old_state;
+reg [4:0] old_state;
 
 assign power_trigger = (rssi_half_db>=power_thres? 1: 0);
 assign state_changed = state != old_state;
@@ -260,7 +261,7 @@ assign ht_len = ht_sig1[23:8];
 
 assign ht_smoothing = ht_sig2[0];
 assign ht_not_sounding = ht_sig2[1];
-assign ht_aggregation = ht_sig2[3];
+assign ht_aggr = ht_sig2[3];
 assign ht_stbc = ht_sig2[5:4];
 assign ht_fec_coding = ht_sig2[6];
 assign ht_sgi = ht_sig2[7];
@@ -271,6 +272,9 @@ wire ht_rsvd = ht_sig2[2];
 wire [7:0] crc = ht_sig2[17:10];
 wire [5:0] ht_sig_tail = ht_sig2[23:18];
 
+reg [15:0] pkt_len_rem;
+reg [7:0] mpdu_del_crc;
+reg [1:0] mpdu_pad;
 
 reg crc_in_stb;
 reg crc_in;
@@ -481,6 +485,9 @@ always @(posedge clock) begin
         equalizer_enable <= 0;
         ht_next <= 0;
 
+        pkt_len_rem <= 0;
+        mpdu_del_crc <= 0;
+        mpdu_pad <= 0;
         pkt_len <= 0;
         pkt_len_total <= 0;
 
@@ -505,6 +512,7 @@ always @(posedge clock) begin
         crc_reset <= 0;
         ht_sig_crc_ok <= 0;
         ht_sig_stb <= 0;
+        ht_aggr_last <= 0;
 
         fcs_out_strobe <= 0;
         fcs_ok <= 0;
@@ -523,6 +531,9 @@ always @(posedge clock) begin
                 ofdm_enable <= 0;
                 ofdm_reset <= 0;
                 pkt_len_total <= 16'hffff;
+                ht_sig1 <= 0;
+                ht_sig2 <= 0;
+                pkt_len_rem <= 0;
 
                 if (power_trigger) begin
                     `ifdef DEBUG_PRINT
@@ -724,7 +735,8 @@ always @(posedge clock) begin
                             "CBW: %d, ", ht_cbw? 40: 20,
                             "length = %012b (%d), ", ht_len, ht_len,
                             "rsvd = %d, ", ht_rsvd,
-                            "aggr = %d, ", ht_aggregation,
+                            "aggr = %d, ", ht_aggr,
+                            "aggr_last = %d, ", ht_aggr_last,
                             "stbd = %02b, ", ht_stbc,
                             "fec = %d, ", ht_fec_coding,
                             "sgi = %d, ", ht_sgi,
@@ -735,6 +747,7 @@ always @(posedge clock) begin
 
                     num_bits_to_decode <= (22+(ht_len<<3))<<1;
                     pkt_rate <= {1'b1, ht_mcs};
+                    pkt_len_rem <= ht_len;
                     pkt_len <= ht_len;
                     pkt_len_total <= ht_len+3+6; //(6 bytes for 3 byte HT-SIG1 and 3 byte HT-SIG2)
 
@@ -779,9 +792,8 @@ always @(posedge clock) begin
             S_CHECK_HT_SIG: begin
                 ofdm_reset <= 1;
                 ht_sig_stb <= 0;
+                ht_aggr_last <= 0;
 
-                pkt_header_valid <= 1;
-                pkt_header_valid_strobe <= 1;
                 if (ht_mcs > 7) begin
                     ht_unsupport <= 1;
                     status_code <= E_UNSUPPORTED_MCS;
@@ -840,8 +852,6 @@ always @(posedge clock) begin
             end
 
             S_HT_STS: begin
-                pkt_header_valid <= 0;
-                pkt_header_valid_strobe <= 0;
                 if (sync_long_out_strobe) begin
                     sync_long_out_count <= sync_long_out_count + 1;
                 end
@@ -853,8 +863,6 @@ always @(posedge clock) begin
             end
 
             S_HT_LTS: begin
-                pkt_header_valid <= 0;
-                pkt_header_valid_strobe <= 0;
                 short_gi <= ht_sgi;
                 if (sync_long_out_strobe) begin
                     sync_long_out_count <= sync_long_out_count + 1;
@@ -864,8 +872,118 @@ always @(posedge clock) begin
                     //num_bits_to_decode <= (ht_len+3)<<4;
                     do_descramble <= 1;
                     ofdm_reset <= 1;
-                    pkt_begin <= 1;
-                    state <= S_DECODE_DATA;
+                    if(ht_aggr) begin
+                        crc_reset <= 1;
+                        crc_count <= 0;
+                        state <= S_MPDU_DELIM;
+                    end else begin
+                        pkt_header_valid <= 1;
+                        pkt_header_valid_strobe <= 1;
+                        pkt_begin <= 1;
+                        pkt_len_rem <= 0;
+                        state <= S_DECODE_DATA;
+                    end
+                end
+            end
+
+            S_MPDU_DELIM: begin
+
+                crc_reset <= 0;
+                ofdm_reset <= 0;
+
+                ofdm_in_stb <= eq_out_stb_delayed;
+                ofdm_in_i <= eq_out_i_delayed;
+                ofdm_in_q <= eq_out_q_delayed;
+
+                if(byte_out_strobe) begin
+
+                    if(byte_count == 3) begin
+
+                        byte_count <= 0;
+                        byte_count_total <= 3+6;
+                        if(crc_out == mpdu_del_crc && byte_out == 8'h4e) begin
+
+                            // Jump over an empty MPDU delimiter
+                            if(pkt_len == 0) begin
+                                pkt_len_rem <= pkt_len_rem - 4;
+                                crc_reset <= 1;
+                                crc_count <= 0;
+                                state <= S_MPDU_DELIM;
+
+                            // Start actual packet decoding
+                            end else begin
+                                pkt_header_valid <= 1;
+                                pkt_header_valid_strobe <= 1;
+                                pkt_len_total <= pkt_len+3+6;
+                                pkt_begin <= 1;
+                                state <= S_DECODE_DATA;
+
+                                // All MPDUs except last one does include padding
+                                if((pkt_len_rem-pkt_len) > 4) begin
+                                    ht_aggr_last <= 0;
+                                    pkt_len_rem <= pkt_len_rem - (4 + pkt_len + mpdu_pad);
+                                end else begin
+                                    ht_aggr_last <= 1;
+                                    pkt_len_rem <= 0;
+                                end
+                            end
+
+                        // MPDU delimiter is erroneous and remaining packet length is less than 8. Stop searching
+                        end else if(|pkt_len_rem[15:3] == 0) begin
+
+                            ht_aggr_last <= 1;
+                            fcs_out_strobe <= 1;
+                            fcs_ok <= 0;
+                            status_code <= E_HT_AMPDU_ERROR;
+                            state <= S_DECODE_DONE;
+
+                        // Else, restart searching
+                        end else begin
+                            pkt_len_rem <= pkt_len_rem - 4;
+                            crc_reset <= 1;
+                            crc_count <= 0;
+                            status_code <= E_HT_AMPDU_WARN;
+                            state <= S_MPDU_DELIM;
+                        end
+
+                    end else begin
+                        byte_count <= byte_count + 1;
+                        byte_count_total <= byte_count_total + 1;
+                        if(byte_count == 0) begin
+                            pkt_len[3:0] <= byte_out[7:4];
+                        end else if(byte_count == 1) begin
+                            pkt_len[11:4] <= byte_out;
+                        end else if(byte_count == 2) begin
+                            pkt_len[15:12] <= 0;
+                            mpdu_del_crc <= byte_out;
+                            if(pkt_len[1:0] == 0)
+                                mpdu_pad <= 0;
+                            else if(pkt_len[1:0] == 1)
+                                mpdu_pad <= 3;
+                            else if(pkt_len[1:0] == 2)
+                                mpdu_pad <= 2;
+                            else
+                                mpdu_pad <= 1;
+                        end
+
+                        // Enable CRC calculation on the first two bytes
+                        if(crc_count[4] == 0) begin
+                            crc_in <= byte_out[crc_count[2:0]];
+                            crc_in_stb <= 1;
+                            crc_count <= crc_count + 1;
+                        end else begin
+                            crc_in_stb <= 0;
+                        end
+                    end
+
+                // Enable CRC calculation on the first two bytes
+                end else if((^byte_count[1:0] == 1) && (|crc_count[2:0] == 1)) begin
+                    crc_in <= byte_out[crc_count[2:0]];
+                    crc_in_stb <= 1;
+                    crc_count <= crc_count + 1;
+
+                end else begin
+                    crc_in_stb <= 0;
                 end
             end
 
@@ -902,7 +1020,31 @@ always @(posedge clock) begin
                         fcs_ok <= 0;
                         status_code <= E_WRONG_FCS;
                     end
-                    state <= S_DECODE_DONE;
+
+                    // restart the decoding process on remaining MPDUs
+                    if(|pkt_len_rem[15:2] == 1) begin
+                        state <= S_MPDU_PAD;
+                    end else begin
+                        state <= S_DECODE_DONE;
+                    end
+                end
+            end
+
+            S_MPDU_PAD: begin
+                fcs_out_strobe <= 0;
+                fcs_ok <= 0;
+
+                ofdm_in_stb <= eq_out_stb_delayed;
+                ofdm_in_i <= eq_out_i_delayed;
+                ofdm_in_q <= eq_out_q_delayed;
+
+                if (byte_out_strobe)
+                    mpdu_pad <= mpdu_pad - 1;
+
+                if (mpdu_pad == 0) begin
+                    crc_reset <= 1;
+                    crc_count <= 0;
+                    state <= S_MPDU_DELIM;
                 end
             end
 
@@ -915,6 +1057,7 @@ always @(posedge clock) begin
                         $display("FCS WRONG");
                     end
                 `endif
+                ht_aggr_last <= 0;
                 fcs_out_strobe <= 0;
                 fcs_ok <= 0;
                 state <= S_WAIT_POWER_TRIGGER;

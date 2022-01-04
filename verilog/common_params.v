@@ -35,10 +35,12 @@ localparam S_CHECK_HT_SIG_CRC =     7;
 localparam S_CHECK_HT_SIG =         8;
 localparam S_HT_STS =               9;
 localparam S_HT_LTS =               10;
-localparam S_DECODE_DATA =          11;
-localparam S_SIGNAL_ERROR =         12;
-localparam S_HT_SIG_ERROR =         13;
-localparam S_DECODE_DONE =          14;
+localparam S_MPDU_DELIM =           11;
+localparam S_DECODE_DATA =          12;
+localparam S_MPDU_PAD =             13;
+localparam S_SIGNAL_ERROR =         14;
+localparam S_HT_SIG_ERROR =         15;
+localparam S_DECODE_DONE =          16;
 
 
 //////////////////////////////////////////////////////////////////////////
@@ -62,7 +64,9 @@ localparam E_UNSUPPORTED_FEC =      5;
 localparam E_UNSUPPORTED_SGI =      6;
 localparam E_UNSUPPORTED_SPATIAL =  7;
 localparam E_HT_WRONG_TAIL =        8;
-localparam E_WRONG_CRC =            9;
+localparam E_HT_AMPDU_WARN =        9;
+localparam E_HT_AMPDU_ERROR =       10;
+localparam E_WRONG_CRC =            11;
 
 // fcs error
 localparam E_WRONG_FCS =            1;

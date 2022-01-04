@@ -53,6 +53,7 @@ wire [31:0] freq_offset_q;
 wire freq_offset_stb;
 
 reg [15:0] phase_out_neg;
+reg [15:0] phase_offset_neg;
 
 wire [31:0] delay_prod_avg_mag;
 wire delay_prod_avg_mag_stb;
@@ -271,6 +272,7 @@ always @(posedge clock) begin
         has_neg <= neg_count > min_neg;
 
         phase_out_neg <= ~phase_out + 1;
+        phase_offset_neg <= {{4{phase_out[15]}}, phase_out[15:4]};
 
         prod_thres <= {1'b0, mag_sq_avg[31:1]} + {2'b0, mag_sq_avg[31:2]};
         
@@ -286,7 +288,10 @@ always @(posedge clock) begin
                     pos_count <= 0;
                     neg_count <= 0;
                     short_preamble_detected <= has_pos & has_neg;
-                    phase_offset <= {{4{phase_out_neg[15]}}, phase_out_neg[15:4]};
+                    if(phase_out_neg[3] == 0)  // E.g. 131/16 = 8.1875 -> 8, -138/16 = -8.625 -> -9
+                        phase_offset <= {{4{phase_out_neg[15]}}, phase_out_neg[15:4]};
+                    else  // E.g. -131/16 = -8.1875 -> -8, 138/16 = 8.625 -> 9
+                        phase_offset <= ~phase_offset_neg + 1;
                 end else begin
                     plateau_count <= plateau_count + 1;
                     short_preamble_detected <= 0;

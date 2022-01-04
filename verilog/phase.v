@@ -14,7 +14,7 @@ module phase
     input input_strobe,
 
     // [-pi, pi) scaled up by 512
-    output reg signed [31:0] phase,
+    output reg signed [15:0] phase,
     output output_strobe
 );
 `include "common_params.v"

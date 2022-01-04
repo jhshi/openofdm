@@ -15,7 +15,7 @@ module equalizer
     output [31:0] phase_in_i,
     output [31:0] phase_in_q,
     output reg phase_in_stb,
-    input [31:0] phase_out,
+    input [15:0] phase_out,
     input phase_out_stb,
 
     output [`ROTATE_LUT_LEN_SHIFT-1:0] rot_addr,
@@ -119,7 +119,7 @@ reg signed [31:0] pilot_sum_q;
 assign phase_in_i = pilot_sum_i;
 assign phase_in_q = pilot_sum_q;
 
-reg signed [31:0] pilot_phase;
+reg signed [15:0] pilot_phase;
 
 reg rot_in_stb;
 wire signed [15:0] rot_i;
@@ -188,7 +188,8 @@ wire signed [15:0] norm_i_signed, norm_q_signed;
 assign norm_i_signed = sample_out[31:16];
 assign norm_q_signed = sample_out[15:0];
 
-wire signed [31:0] prod_i_signed, prod_q_signed, prod_i_scaled_signed, prod_q_scaled_signed, phase_out_signed;
+wire signed [31:0] prod_i_signed, prod_q_signed, prod_i_scaled_signed, prod_q_scaled_signed;
+wire signed [15:0] phase_out_signed;
 assign prod_i_signed = prod_i;
 assign prod_q_signed = prod_q;
 assign prod_i_scaled_signed = prod_i_scaled;

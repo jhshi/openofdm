@@ -54,7 +54,7 @@ module dot11 (
 
     // sync short
     output short_preamble_detected,
-    output [31:0] phase_offset,
+    output [15:0] phase_offset,
 
     // sync long
     output [31:0] sync_long_metric,
@@ -164,13 +164,13 @@ rot_lut rot_lut_inst (
 wire [31:0] sync_short_phase_in_i;
 wire [31:0] sync_short_phase_in_q;
 wire sync_short_phase_in_stb;
-wire [31:0] sync_short_phase_out;
+wire [15:0] sync_short_phase_out;
 wire sync_short_phase_out_stb;
 
 wire [31:0] eq_phase_in_i;
 wire [31:0] eq_phase_in_q;
 wire eq_phase_in_stb;
-wire [31:0] eq_phase_out;
+wire [15:0] eq_phase_out;
 wire eq_phase_out_stb;
 
 wire[31:0] phase_in_i = state == S_SYNC_SHORT?
@@ -180,7 +180,7 @@ wire[31:0] phase_in_q = state == S_SYNC_SHORT?
 wire phase_in_stb = state == S_SYNC_SHORT?
     sync_short_phase_in_stb: eq_phase_in_stb;
 
-wire [31:0] phase_out;
+wire [15:0] phase_out;
 wire phase_out_stb;
 
 assign sync_short_phase_out = phase_out;

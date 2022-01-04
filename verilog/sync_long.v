@@ -5,7 +5,7 @@ module sync_long (
 
     input [31:0] sample_in,
     input sample_in_strobe,
-    input signed [31:0] phase_offset,
+    input signed [15:0] phase_offset,
     input short_gi,
 
     output [`ROTATE_LUT_LEN_SHIFT-1:0] rot_addr,

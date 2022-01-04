@@ -212,7 +212,7 @@ always @(posedge clock) begin
         equalizer_out_fd = $fopen("./equalizer_out.txt", "w");
     end
 
-    if (num_ofdm_sym == 1 && state == S_CALC_FREQ_OFFSET && sample_in_strobe_dly == 1 && enable && (~reset) ) begin
+    if ((num_ofdm_sym == 1 || (pkt_ht==1 && num_ofdm_sym==5)) && state == S_CALC_FREQ_OFFSET && sample_in_strobe_dly == 1 && enable && (~reset) ) begin
         $fwrite(new_lts_fd, "%d %d\n", lts_i_out, lts_q_out);
         $fflush(new_lts_fd);
     end

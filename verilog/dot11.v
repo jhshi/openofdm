@@ -371,7 +371,7 @@ equalizer equalizer_inst (
     .enable(enable & equalizer_enable),
 
     .sample_in(sync_long_out),
-    .sample_in_strobe(sync_long_out_strobe),
+    .sample_in_strobe(sync_long_out_strobe && !(state==S_HT_SIGNAL && num_ofdm_symbol==6)),
     .ht_next(ht_next),
     .pkt_ht(pkt_ht),
     .ht_smoothing(ht_smoothing),

@@ -26,6 +26,8 @@ wire [31:0] equalizer_out;
 wire equalizer_out_strobe;
 
 wire [5:0] demod_out;
+wire [5:0] demod_soft_bits;
+wire [3:0] demod_soft_bits_pos;
 wire demod_out_strobe;
 
 wire [7:0] deinterleave_erase_out;
@@ -76,6 +78,8 @@ integer sync_long_out_fd;
 integer equalizer_out_fd;
 
 integer demod_out_fd;
+integer demod_soft_bits_fd;
+integer demod_soft_bits_pos_fd;
 integer deinterleave_erase_out_fd;
 integer conv_out_fd;
 integer descramble_out_fd;
@@ -144,6 +148,8 @@ always @(posedge clock) begin
         equalizer_out_fd = $fopen("./equalizer_out.txt", "w");
 
         demod_out_fd = $fopen("./demod_out.txt", "w");
+        demod_soft_bits_fd = $fopen("./demod_soft_bits.txt", "w");
+        demod_soft_bits_pos_fd = $fopen("./demod_soft_bits_pos.txt", "w");
         deinterleave_erase_out_fd = $fopen("./deinterleave_erase_out.txt", "w");
         conv_out_fd = $fopen("./conv_out.txt", "w");
         descramble_out_fd = $fopen("./descramble_out.txt", "w");
@@ -225,6 +231,8 @@ always @(posedge clock) begin
                 $fclose(equalizer_out_fd);
 
                 $fclose(demod_out_fd);
+                $fclose(demod_soft_bits_fd);
+                $fclose(demod_soft_bits_pos_fd);
                 $fclose(deinterleave_erase_out_fd);
                 $fclose(conv_out_fd);
                 $fclose(descramble_out_fd);
@@ -259,7 +267,11 @@ always @(posedge clock) begin
 
         if (dot11_state == S_DECODE_DATA && demod_out_strobe) begin
             $fwrite(demod_out_fd, "%b %b %b %b %b %b\n",demod_out[0],demod_out[1],demod_out[2],demod_out[3],demod_out[4],demod_out[5]);
+            $fwrite(demod_soft_bits_fd, "%b %b %b %b %b %b\n",demod_soft_bits[0],demod_soft_bits[1],demod_soft_bits[2],demod_soft_bits[3],demod_soft_bits[4],demod_soft_bits[5]);
+            $fwrite(demod_soft_bits_pos_fd, "%b %b %b %b\n",demod_soft_bits_pos[0],demod_soft_bits_pos[1],demod_soft_bits_pos[2],demod_soft_bits_pos[3]);
             $fflush(demod_out_fd);
+            $fflush(demod_soft_bits_fd);
+            $fflush(demod_soft_bits_pos_fd);
         end
 
         if (dot11_state == S_DECODE_DATA && deinterleave_erase_out_strobe) begin
@@ -335,6 +347,8 @@ dot11 dot11_inst (
     .legacy_sig_tail(legacy_sig_tail),
 
     .demod_out(demod_out),
+    .demod_soft_bits(demod_soft_bits),
+    .demod_soft_bits_pos(demod_soft_bits_pos),
     .demod_out_strobe(demod_out_strobe),
 
     .deinterleave_erase_out(deinterleave_erase_out),

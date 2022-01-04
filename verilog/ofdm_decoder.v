@@ -14,6 +14,8 @@ module ofdm_decoder
     input [31:0] num_bits_to_decode,
 
     output [5:0] demod_out,
+    output [5:0] demod_soft_bits,
+    output [3:0] demod_soft_bits_pos,
     output demod_out_strobe,
 
     output [7:0] deinterleave_erase_out,
@@ -28,9 +30,6 @@ module ofdm_decoder
     output [7:0] byte_out,
     output byte_out_strobe
 );
-
-wire [5:0] demod_soft_bits;
-wire [3:0] demod_soft_bits_pos;
 
 reg conv_in_stb, conv_in_stb_dly, do_descramble_dly;
 reg [2:0] conv_in0, conv_in0_dly;

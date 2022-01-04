@@ -97,6 +97,8 @@ module dot11 (
 
     // decoding pipeline
     output [5:0] demod_out,
+    output [5:0] demod_soft_bits,
+    output [3:0] demod_soft_bits_pos,
     output demod_out_strobe,
 
     output [7:0] deinterleave_erase_out,
@@ -420,6 +422,8 @@ ofdm_decoder ofdm_decoder_inst (
     .byte_out_strobe(byte_out_strobe),
 
     .demod_out(demod_out),
+    .demod_soft_bits(demod_soft_bits),
+    .demod_soft_bits_pos(demod_soft_bits_pos),
     .demod_out_strobe(demod_out_strobe),
 
     .deinterleave_erase_out(deinterleave_erase_out),

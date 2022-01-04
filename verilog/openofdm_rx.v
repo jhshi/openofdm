@@ -25,6 +25,7 @@
 		output wire ht_unsupport,
 		output wire [7:0] pkt_rate,
 		output wire [15:0] pkt_len,
+		output ht_aggregation,
 		output wire ht_sgi,
 //		output wire [15:0] pkt_len_total, // for interface to byte_to_word.v in rx_intf.v
 		output wire byte_out_strobe,
@@ -181,7 +182,7 @@
 		.ht_len(),
 		.ht_smoothing(),
 		.ht_not_sounding(),
-		.ht_aggregation(),
+		.ht_aggregation(ht_aggregation),
 		.ht_stbc(),
 		.ht_fec_coding(),
 		.ht_sgi(ht_sgi),

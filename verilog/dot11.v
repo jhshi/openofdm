@@ -924,7 +924,7 @@ always @(posedge clock) begin
                                 state <= S_DECODE_DATA;
 
                                 // All MPDUs except last one does include padding
-                                if((pkt_len_rem-pkt_len) > 4) begin
+                                if((pkt_len_rem-pkt_len-mpdu_pad) > 4) begin
                                     ht_aggr_last <= 0;
                                     pkt_len_rem <= pkt_len_rem - (4 + pkt_len + mpdu_pad);
                                 end else begin

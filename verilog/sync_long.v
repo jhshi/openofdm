@@ -20,7 +20,7 @@ module sync_long (
     output reg [15:0] num_ofdm_symbol,
 
     output reg signed [31:0] phase_offset_taken,
-    output reg [2:0] state
+    output reg [1:0] state
 );
 `include "common_params.v"
 
@@ -122,9 +122,6 @@ complex_to_mag #(.DATA_WIDTH(32)) sum_mag_inst (
 
 reg [31:0] metric_max1;
 reg [(IN_BUF_LEN_SHIFT-1):0] addr1;
-reg [31:0] metric_max2;
-reg [(IN_BUF_LEN_SHIFT-1):0] addr2;
-reg [15:0] gap;
 
 reg [31:0] cross_corr_buf[0:15];
 
@@ -169,9 +166,8 @@ stage_mult stage_mult_inst (
 
 localparam S_SKIPPING = 0;
 localparam S_WAIT_FOR_FIRST_PEAK = 1;
-localparam S_WAIT_FOR_SECOND_PEAK = 2;
-localparam S_IDLE = 3;
-localparam S_FFT = 4;
+localparam S_IDLE = 2;
+localparam S_FFT = 3;
 
 reg fft_start;
 //wire fft_start_delayed;
@@ -324,50 +320,24 @@ always @(posedge clock) begin
                 end
 
                 if (num_sample >= 64) begin
+                    long_preamble_detected <= 1;
                     num_sample <= 0;
-                    addr2 <= 0;
-                    state <= S_WAIT_FOR_SECOND_PEAK;
+                    mult_strobe <= 0;
+                    sum_stb <= 0;
+                    // offset it by the length of cross correlation buffer
+                    // size
+                    in_raddr <= addr1 - 16;
+                    num_input_consumed <= addr1 - 16;
+                    in_offset <= 0;
+                    num_ofdm_symbol <= 0;
+                    phase_correction <= 0;
+                    next_phase_correction <= phase_offset;
+                    phase_offset_taken <= phase_offset;
+                    state <= S_FFT;
                 end else if (metric_stb) begin
                     num_sample <= num_sample + 1;
                 end
 
-            end
-
-            S_WAIT_FOR_SECOND_PEAK: begin
-                do_mult();
-
-                if (metric_stb && (metric > metric_max2)) begin
-                    metric_max2 <= metric;
-                    addr2 <= in_raddr - 1;
-                end
-                gap <= addr2 - addr1;
-
-                if (num_sample >= 64) begin
-                    `ifdef DEBUG_PRINT
-                        $display("PEAK GAP: %d (%d - %d)", gap, addr2, addr1);
-                        $display("PHASE OFFSET: %d", phase_offset);
-                    `endif
-                    if (gap > 62 && gap < 66) begin
-                        long_preamble_detected <= 1;
-                        num_sample <= 0;
-                        mult_strobe <= 0;
-                        sum_stb <= 0;
-                        // offset it by the length of cross correlation buffer
-                        // size
-                        in_raddr <= addr1 - 16;
-                        num_input_consumed <= addr1 - 16;
-                        in_offset <= 0;
-                        num_ofdm_symbol <= 0;
-                        phase_correction <= 0;
-                        next_phase_correction <= phase_offset;
-                        phase_offset_taken <= phase_offset;
-                        state <= S_FFT;
-                    end else begin
-                        state <= S_IDLE;
-                    end
-                end else if (metric_stb) begin
-                    num_sample <= num_sample + 1;
-                end
             end
 
             S_FFT: begin
@@ -553,7 +523,6 @@ end
 endtask
 
 task do_clear; begin
-    gap <= 0;
 
     in_waddr <= 0;
     in_raddr <= 0;
@@ -575,8 +544,6 @@ task do_clear; begin
 
     metric_max1 <= 0;
     addr1 <= 0;
-    metric_max2 <= 0;
-    addr2 <= 0;
 
     mult_stage <= 0;
 

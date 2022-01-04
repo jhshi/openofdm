@@ -691,7 +691,7 @@ always @(posedge clock) begin
                     abs_eq_q <= eq_out_q[15]? ~eq_out_q+1: eq_out_q;
                     if (abs_eq_q > abs_eq_i) begin
                         rot_eq_count <= rot_eq_count + 1;
-                    end else begin
+                    end else if (abs_eq_q < abs_eq_i) begin
                         normal_eq_count <= normal_eq_count + 1;
                     end
                 end

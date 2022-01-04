@@ -25,6 +25,10 @@ reg [DATA_WIDTH-1:0] abs_i;
 reg [DATA_WIDTH-1:0] abs_q;
 reg [DATA_WIDTH-1:0] max;
 reg [DATA_WIDTH-1:0] min;
+wire [DATA_WIDTH-1:0] dividend;
+wire [DATA_WIDTH-`ATAN_LUT_LEN_SHIFT-1:0] divisor;
+assign dividend = (max > 8388608) ? min                                   : {min[DATA_WIDTH-`ATAN_LUT_LEN_SHIFT-1:0], {`ATAN_LUT_LEN_SHIFT{1'b0}}};
+assign divisor  = (max > 8388608) ? max[DATA_WIDTH-1:`ATAN_LUT_LEN_SHIFT] :  max[DATA_WIDTH-`ATAN_LUT_LEN_SHIFT-1:0];
 
 wire div_in_stb;
 
@@ -66,8 +70,8 @@ divider div_inst (
     .enable(enable),
     .reset(reset),
 
-    .dividend(min),
-    .divisor({{(`ATAN_LUT_LEN_SHIFT-8){1'b0}}, max[31:`ATAN_LUT_LEN_SHIFT]}),
+    .dividend(dividend),
+    .divisor({{(`ATAN_LUT_LEN_SHIFT-8){1'b0}}, divisor}),
     .input_strobe(div_in_stb),
 
     .quotient(quotient),

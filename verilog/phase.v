@@ -78,7 +78,7 @@ divider div_inst (
     .output_strobe(div_out_stb)
 );
 
-delayT #(.DATA_WIDTH(3), .DELAY(36)) quadrant_inst  (
+delayT #(.DATA_WIDTH(3), .DELAY(37)) quadrant_inst  (
     .clock(clock),
     .reset(reset),
 

@@ -371,18 +371,30 @@ always @(posedge clock) begin
                     if (phase_offset > 0) begin
                         if (next_phase_correction > PI) begin
                             phase_correction <= next_phase_correction - DOUBLE_PI;
-                            next_phase_correction <= next_phase_correction + phase_offset - DOUBLE_PI;
+                            if(in_offset == 63 && num_ofdm_symbol > 0)
+                                next_phase_correction <= next_phase_correction - DOUBLE_PI + phase_offset + (short_gi ? phase_offset<<<3 : phase_offset<<<4);
+                            else
+                                next_phase_correction <= next_phase_correction - DOUBLE_PI + phase_offset;
                         end else begin
                             phase_correction <= next_phase_correction;
-                            next_phase_correction <= next_phase_correction + phase_offset;
+                            if(in_offset == 63 && num_ofdm_symbol > 0)
+                                next_phase_correction <= next_phase_correction + phase_offset + (short_gi ? phase_offset<<<3 : phase_offset<<<4);
+                            else
+                                next_phase_correction <= next_phase_correction + phase_offset;
                         end
                     end else begin
                         if (next_phase_correction < -PI) begin
                             phase_correction <= next_phase_correction + DOUBLE_PI;
-                            next_phase_correction <= next_phase_correction + DOUBLE_PI + phase_offset;
+                            if(in_offset == 63 && num_ofdm_symbol > 0)
+                                next_phase_correction <= next_phase_correction + DOUBLE_PI + phase_offset + (short_gi ? phase_offset<<<3 : phase_offset<<<4);
+                            else
+                                next_phase_correction <= next_phase_correction + DOUBLE_PI + phase_offset;
                         end else begin
                             phase_correction <= next_phase_correction;
-                            next_phase_correction <= next_phase_correction + phase_offset;
+                            if(in_offset == 63 && num_ofdm_symbol > 0)
+                                next_phase_correction <= next_phase_correction + phase_offset + (short_gi ? phase_offset<<<3 : phase_offset<<<4);
+                            else
+                                next_phase_correction <= next_phase_correction + phase_offset;
                         end
                     end
                 end

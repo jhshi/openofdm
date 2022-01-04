@@ -68,7 +68,7 @@ module dot11 (
     // equalizer
     output [31:0] equalizer_out,
     output equalizer_out_strobe,
-    output [2:0] equalizer_state,
+    output [3:0] equalizer_state,
     output wire ofdm_symbol_eq_out_pulse,
 
     // legacy signal info
@@ -120,9 +120,9 @@ module dot11 (
 ////////////////////////////////////////////////////////////////////////////////
 // extra info output to ease side info and viterbi state monitor
 ////////////////////////////////////////////////////////////////////////////////
-reg  [2:0] equalizer_state_reg;
+reg  [3:0] equalizer_state_reg;
 
-assign ofdm_symbol_eq_out_pulse = (equalizer_state==4 && equalizer_state_reg==6);
+assign ofdm_symbol_eq_out_pulse = (equalizer_state==4 && equalizer_state_reg==7);
 
 always @(posedge clock) begin
     if (reset==1) begin

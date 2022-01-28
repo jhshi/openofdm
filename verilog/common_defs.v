@@ -1,4 +1,4 @@
-`define ATAN_LUT_LEN_SHIFT          8
+`define ATAN_LUT_LEN_SHIFT          9
 // changing this requires changing PI definition in common_params.v accordingly
 `define ATAN_LUT_SCALE_SHIFT        9
 

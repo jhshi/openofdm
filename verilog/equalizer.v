@@ -10,11 +10,12 @@ module equalizer
     input sample_in_strobe,
     input ht_next,
     input pkt_ht,
+    input ht_smoothing,
 
     output [31:0] phase_in_i,
     output [31:0] phase_in_q,
     output reg phase_in_stb,
-    input [31:0] phase_out,
+    input [15:0] phase_out,
     input phase_out_stb,
 
     output [`ROTATE_LUT_LEN_SHIFT-1:0] rot_addr,
@@ -23,7 +24,7 @@ module equalizer
     output reg [31:0] sample_out,
     output reg sample_out_strobe,
     
-    output reg [2:0] state,
+    output reg [3:0] state,
 
     // for side channel
     output wire [31:0] csi,
@@ -81,7 +82,7 @@ reg [63:0] pilot_mask;
 reg [126:0] polarity;
 reg [3:0] ht_polarity;
 reg [3:0] current_polarity;
-reg [3:0] pilot_count;
+reg [3:0] pilot_count1, pilot_count2;
 
 reg signed [15:0] input_i;
 reg signed [15:0] input_q;
@@ -111,14 +112,33 @@ wire [15:0] buf_q_out;
 reg pilot_in_stb;
 wire signed [31:0] pilot_i;
 wire signed [31:0] pilot_q;
+reg signed [31:0] pilot_i_reg, pilot_q_reg;
+reg signed [15:0] pilot_iq_phase[0:3];
 
 reg signed [31:0] pilot_sum_i;
 reg signed [31:0] pilot_sum_q;
 
-assign phase_in_i = pilot_sum_i;
-assign phase_in_q = pilot_sum_q;
+assign phase_in_i = pilot_i_reg;
+assign phase_in_q = pilot_q_reg;
 
-reg signed [31:0] pilot_phase;
+reg signed [15:0] pilot_phase_err;
+reg signed [15:0] cpe; // common phase error due to RFO
+reg signed [15:0] Sxy;
+localparam Sx2 = 980;
+
+// linear varying phase error (LVPE) parameters
+reg signed [7:0] sym_idx;
+reg lvpe_in_stb;
+wire lvpe_out_stb;
+wire signed [31:0] lvpe_dividend, lvpe;
+wire signed [23:0] lvpe_divisor;
+assign lvpe_dividend = (sym_idx <= 33 ? sym_idx*Sxy : (sym_idx-64)*Sxy);
+assign lvpe_divisor = Sx2;
+
+
+reg signed [15:0] phase_err;
+wire signed [15:0] sym_phase;
+assign sym_phase = (phase_err > 1608) ? (phase_err - 3217) : ((phase_err < -1608) ? (phase_err + 3217) : phase_err);
 
 reg rot_in_stb;
 wire signed [15:0] rot_i;
@@ -151,11 +171,11 @@ reg signed [18:0] lts_sum_q;
 reg [2:0] lts_mv_avg_len;
 reg lts_div_in_stb;
 
-wire [31:0] dividend_i = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? (lts_sum_i[18] == 0 ? {13'h0,lts_sum_i} : {13'h1FFF,lts_sum_i})  : (state == S_ADJUST_FREQ_OFFSET ? prod_i_scaled : 0);
-wire [31:0] dividend_q = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? (lts_sum_q[18] == 0 ? {13'h0,lts_sum_q} : {13'h1FFF,lts_sum_q})	  : (state == S_ADJUST_FREQ_OFFSET ? prod_q_scaled : 0);
-wire [23:0] divisor_i = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_OFFSET ? mag_sq[23:0] : 1);
-wire [23:0] divisor_q = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_OFFSET ? mag_sq[23:0] : 1);
-wire div_in_stb = (state == S_UPDATE_DC_LTS || state == S_MV_AVG_LTS) ? lts_div_in_stb : (state == S_ADJUST_FREQ_OFFSET ? prod_out_strobe : 0);
+wire [31:0] dividend_i = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? (lts_sum_i[18] == 0 ? {13'h0,lts_sum_i} : {13'h1FFF,lts_sum_i}) : (state == S_ADJUST_FREQ_and_SAMPL_OFFSET ? prod_i_scaled : 0);
+wire [31:0] dividend_q = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? (lts_sum_q[18] == 0 ? {13'h0,lts_sum_q} : {13'h1FFF,lts_sum_q}) : (state == S_ADJUST_FREQ_and_SAMPL_OFFSET ? prod_q_scaled : 0);
+wire [23:0] divisor_i = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_and_SAMPL_OFFSET ? mag_sq[23:0] : 1);
+wire [23:0] divisor_q = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_and_SAMPL_OFFSET ? mag_sq[23:0] : 1);
+wire div_in_stb = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? lts_div_in_stb : (state == S_ADJUST_FREQ_and_SAMPL_OFFSET ? prod_out_strobe : 0);
 
 
 reg [15:0] num_output;
@@ -187,7 +207,8 @@ wire signed [15:0] norm_i_signed, norm_q_signed;
 assign norm_i_signed = sample_out[31:16];
 assign norm_q_signed = sample_out[15:0];
 
-wire signed [31:0] prod_i_signed, prod_q_signed, prod_i_scaled_signed, prod_q_scaled_signed, phase_out_signed;
+wire signed [31:0] prod_i_signed, prod_q_signed, prod_i_scaled_signed, prod_q_scaled_signed;
+wire signed [15:0] phase_out_signed;
 assign prod_i_signed = prod_i;
 assign prod_q_signed = prod_q;
 assign prod_i_scaled_signed = prod_i_scaled;
@@ -210,7 +231,7 @@ always @(posedge clock) begin
         equalizer_out_fd = $fopen("./equalizer_out.txt", "w");
     end
 
-    if (num_ofdm_sym == 1 && state == S_CALC_FREQ_OFFSET && sample_in_strobe_dly == 1 && enable && (~reset) ) begin
+    if ((num_ofdm_sym == 1 || (pkt_ht==1 && num_ofdm_sym==5)) && state == S_CALC_FREQ_OFFSET && sample_in_strobe_dly == 1 && enable && (~reset) ) begin
         $fwrite(new_lts_fd, "%d %d\n", lts_i_out, lts_q_out);
         $fflush(new_lts_fd);
     end
@@ -337,7 +358,7 @@ rotate rotate_inst (
 
     .in_i(buf_i_out),
     .in_q(buf_q_out),
-    .phase(pilot_phase),
+    .phase(sym_phase),
     .input_strobe(rot_in_stb),
 
     .rot_addr(rot_addr),
@@ -399,14 +420,29 @@ divider norm_q_inst (
     .quotient(quotient_q)
 );
 
+// LVPE calculation to estimate SFO
+divider lvpe_inst (
+    .clock(clock),
+    .enable(enable),
+    .reset(reset),
+
+    .dividend(lvpe_dividend),
+    .divisor(lvpe_divisor),
+    .input_strobe(lvpe_in_stb),
+
+    .quotient(lvpe),
+    .output_strobe(lvpe_out_stb)
+);
+
 localparam S_FIRST_LTS = 0;
 localparam S_SECOND_LTS = 1;
-localparam S_UPDATE_DC_LTS = 2;
-localparam S_MV_AVG_LTS = 3;
+localparam S_SMOOTH_CH_DC = 2;
+localparam S_SMOOTH_CH_LTS = 3;
 localparam S_GET_POLARITY = 4;
 localparam S_CALC_FREQ_OFFSET = 5;
-localparam S_ADJUST_FREQ_OFFSET = 6;
-localparam S_HT_LTS = 7;
+localparam S_CALC_SAMPL_OFFSET = 6;
+localparam S_ADJUST_FREQ_and_SAMPL_OFFSET = 7;
+localparam S_HT_LTS = 8;
 
 always @(posedge clock) begin
     if (reset) begin
@@ -433,22 +469,32 @@ always @(posedge clock) begin
         ht_polarity <= HT_POLARITY;
 
         current_polarity <= 0;
-        pilot_count <= 0;
+        pilot_count1 <= 0;
+        pilot_count2 <= 0;
 
         in_waddr <= 0;
         in_raddr <= 0;
+        sym_idx <= 0;
 
         lts_reg1_i <= 0; lts_reg2_i <= 0; lts_reg3_i <= 0; lts_reg4_i <= 0; lts_reg5_i <= 0;
         lts_reg1_q <= 0; lts_reg2_q <= 0; lts_reg3_q <= 0; lts_reg4_q <= 0; lts_reg5_q <= 0;
         lts_sum_i <= 0;
         lts_sum_q <= 0;
+        lts_mv_avg_len <= 0;
         lts_div_in_stb <= 0;
 
         phase_in_stb <= 0;
         pilot_sum_i <= 0;
         pilot_sum_q <= 0;
-        pilot_phase <= 0;
+        pilot_phase_err <= 0;
+        cpe <= 0;
+        Sxy <= 0;
+        lvpe_in_stb <= 0;
+        phase_err <= 0;
         pilot_in_stb <= 0;
+        pilot_i_reg <= 0;
+        pilot_q_reg <= 0;
+        pilot_iq_phase[0] <= 0; pilot_iq_phase[1] <= 0; pilot_iq_phase[2] <= 0; pilot_iq_phase[3] <= 0;
 
         prod_in_strobe <= 0;
 
@@ -502,14 +548,17 @@ always @(posedge clock) begin
                         lts_raddr <= 62;
                         lts_in_stb <= 0;
                         lts_div_in_stb <= 0;
-                        state <= S_UPDATE_DC_LTS;
+                        // Always smooth legacy channel
+                        state <= S_SMOOTH_CH_DC;
                     end else begin
                         lts_waddr <= lts_waddr + 1;
                     end
                 end
             end 
 
-            S_UPDATE_DC_LTS: begin
+            // 802.11-2012.pdf: 20.3.9.4.3 Table 20-11
+            // channel estimate smoothing (averaging length = 5)
+            S_SMOOTH_CH_DC: begin
                 if(lts_div_in_stb == 1) begin
                     lts_div_in_stb <= 0;
                 end else if(lts_raddr == 4) begin
@@ -528,7 +577,7 @@ always @(posedge clock) begin
                         lts_waddr <= 37;
                         lts_raddr <= 38;
                         lts_in_stb <= 0;
-                        state <= S_MV_AVG_LTS;
+                        state <= S_SMOOTH_CH_LTS;
                     end else if(lts_div_out_stb == 1) begin
                         lts_i_in <= lts_div_i[15:0];
                         lts_q_in <= lts_div_q[15:0];
@@ -538,7 +587,9 @@ always @(posedge clock) begin
 
             end
 
-            S_MV_AVG_LTS: begin
+            // 802.11-2012.pdf: 20.3.9.4.3 Table 20-11
+            // channel estimate smoothing (averaging length = 5)
+            S_SMOOTH_CH_LTS: begin
                 if(lts_raddr == 42) begin
                     lts_sum_i <= lts_sum_1_3_i;
                     lts_sum_q <= lts_sum_1_3_q;
@@ -609,7 +660,9 @@ always @(posedge clock) begin
 
                 pilot_sum_i <= 0;
                 pilot_sum_q <= 0;
-                pilot_count <= 0;
+                pilot_count1 <= 0;
+                pilot_count2 <= 0;
+                cpe <= 0;
                 in_waddr <= 0;
                 in_raddr <= 0;
                 input_i <= 0;
@@ -640,7 +693,7 @@ always @(posedge clock) begin
 
                     pilot_mask <= {pilot_mask[0], pilot_mask[63:1]};
                     if (pilot_mask[0]) begin
-                        pilot_count <= pilot_count + 1;
+                        pilot_count1 <= pilot_count1 + 1;
                         current_polarity <= {current_polarity[0],
                             current_polarity[3:1]};
                         // obtain the conjugate of current pilot sub carrier
@@ -662,34 +715,90 @@ always @(posedge clock) begin
                 if (pilot_out_stb) begin
                     pilot_sum_i <= pilot_sum_i + pilot_i;
                     pilot_sum_q <= pilot_sum_q + pilot_q;
-                    if (pilot_count == 4) begin
-                        phase_in_stb <= 1;
-                    end else begin
-                        phase_in_stb <= 0;
-                    end
+                    pilot_i_reg <= pilot_i;
+                    pilot_q_reg <= pilot_q;
+                    phase_in_stb <= 1;
                 end else begin
                     phase_in_stb <= 0;
                 end
 
                 if (phase_out_stb) begin
+                    pilot_count2 <= pilot_count2 + 1;
+                    pilot_iq_phase[pilot_count2] <= phase_out;
                     `ifdef DEBUG_PRINT
                         $display("[PILOT OFFSET] %d", phase_out);
                     `endif
-                    pilot_phase <= phase_out;
+                end else if (pilot_count2 > 3) begin
+                    pilot_count2 <= pilot_count2 + 1;
+                end
+
+                if (pilot_count2 == 8) begin
+                    pilot_count1 <= 0;
+                    pilot_count2 <= 0;
+                    cpe <= {(cpe[15] == 0 ? 2'b00:2'b11),cpe[15:2]};
+                    Sxy <= 0;
+                    state <= S_CALC_SAMPL_OFFSET;
+                end else if (pilot_count2 > 3) begin
+                    // sampling rate offset (SFO) is calculated as pilot phase error
+                    if(pilot_sum_i < 0 && pilot_sum_q > 0 && pilot_iq_phase[pilot_count2[1:0]] < 0) begin
+                        cpe = cpe + pilot_iq_phase[pilot_count2[1:0]] + 3217;
+                    end else if(pilot_sum_i < 0 && pilot_sum_q < 0 && pilot_iq_phase[pilot_count2[1:0]] > 0) begin
+                        cpe = cpe + pilot_iq_phase[pilot_count2[1:0]] - 3217;
+                    end else begin
+                        cpe = cpe + pilot_iq_phase[pilot_count2[1:0]];
+                    end
+                end
+            end
+
+            S_CALC_SAMPL_OFFSET: begin
+                if (pilot_count1 < 4) begin
+                    // sampling rate offset (SFO) is calculated as pilot phase error
+                    if(cpe > 804 && pilot_iq_phase[pilot_count1] < 0) begin
+                        pilot_phase_err <= pilot_iq_phase[pilot_count1] - cpe + 3217;
+                    end else if(cpe < -804 && pilot_iq_phase[pilot_count1] > 0) begin
+                        pilot_phase_err <= pilot_iq_phase[pilot_count1] - cpe - 3217;
+                    end else begin
+                        pilot_phase_err <= pilot_iq_phase[pilot_count1] - cpe;
+                    end
+
+                    pilot_count1 <= pilot_count1 + 1;
+                end
+
+                if(pilot_count1 == 1) begin
+                    Sxy <= Sxy + 7*pilot_phase_err;
+                end else if(pilot_count1 == 2) begin
+                    Sxy <= Sxy + 21*pilot_phase_err;
+                end else if(pilot_count1 == 3) begin
+                    Sxy <= Sxy + -21*pilot_phase_err;
+                end else if(pilot_count1 == 4) begin
+                    Sxy <= Sxy + -7*pilot_phase_err;
+
                     in_raddr <= 0;
+                    sym_idx <= 0;
+                    lvpe_in_stb <= 0;
                     // compensate for RAM read delay
                     lts_raddr <= 1;
                     rot_in_stb <= 0;
                     num_output <= 0;
-                    state <= S_ADJUST_FREQ_OFFSET;
+                    state <= S_ADJUST_FREQ_and_SAMPL_OFFSET;
                 end
+                // Sx² = ∑(x-x̄)*(x-x̄) = ∑x² = (7² + 21² + (-21)² + (-7)²) = 980
+                // phase error gradient (PEG) = Sxy/Sx²
             end
 
-            S_ADJUST_FREQ_OFFSET: begin
+            S_ADJUST_FREQ_and_SAMPL_OFFSET: begin
+                if (sym_idx < 64) begin
+                    sym_idx <= sym_idx + 1;
+                    lvpe_in_stb <= 1;
+                end else begin
+                    lvpe_in_stb <= 0;
+                end
+
                 // first rotate, then normalize by avg LTS
-                if (in_raddr < 64) begin
-                    in_raddr <= in_raddr + 1;
+                if (lvpe_out_stb) begin
+                    phase_err <= cpe + lvpe[15:0];
                     rot_in_stb <= 1;
+                    in_raddr <= in_raddr + 1;
                 end else begin
                     rot_in_stb <= 0;
                 end
@@ -738,7 +847,12 @@ always @(posedge clock) begin
                         lts_raddr <= 62;
                         lts_in_stb <= 0;
                         lts_div_in_stb <= 0;
-                        state <= S_UPDATE_DC_LTS;
+                        // Depending on smoothing bit in HT-SIG, smooth the channel
+                        if(ht_smoothing) begin
+                            state <= S_SMOOTH_CH_DC;
+                        end else begin
+                            state <= S_GET_POLARITY;
+                        end
                     end else begin
                         lts_waddr <= lts_waddr + 1;
                     end

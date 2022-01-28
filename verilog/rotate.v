@@ -10,7 +10,7 @@ module rotate
     input [15:0] in_q,
     // [-PI, PI]
     // scaled up by ATAN_LUT_SCALE_SHIFT
-    input signed [31:0] phase,
+    input signed [15:0] phase,
     input input_strobe,
 
     output [`ROTATE_LUT_LEN_SHIFT-1:0] rot_addr,
@@ -22,15 +22,15 @@ module rotate
 );
 `include "common_params.v"
 
-reg [31:0] phase_delayed;
-reg [31:0] phase_abs;
+reg [15:0] phase_delayed;
+reg [15:0] phase_abs;
 
 reg [2:0] quadrant;
 reg [2:0] quadrant_delayed;
 wire [15:0] in_i_delayed;
 wire [15:0] in_q_delayed;
 
-reg [31:0] actual_phase;
+reg [15:0] actual_phase;
 
 wire [15:0] raw_rot_i;
 wire [15:0] raw_rot_q;
@@ -100,21 +100,21 @@ always @(posedge clock) begin
         `endif
 
         // cycle 1
-        phase_abs <= phase[31]? ~phase+1: phase;
+        phase_abs <= phase[15]? ~phase+1: phase;
         phase_delayed <= phase;
 
         // cycle 2
         if (phase_abs <= PI_4) begin
-            quadrant <= {phase_delayed[31], 2'b00};
+            quadrant <= {phase_delayed[15], 2'b00};
             actual_phase <= phase_abs;
         end else if (phase_abs <= PI_2) begin
-            quadrant <= {phase_delayed[31], 2'b01};
+            quadrant <= {phase_delayed[15], 2'b01};
             actual_phase <= PI_2 - phase_abs;
         end else if (phase_abs <= PI_3_4) begin
-            quadrant <= {phase_delayed[31], 2'b10};
+            quadrant <= {phase_delayed[15], 2'b10};
             actual_phase <= phase_abs - PI_2;
         end else begin
-            quadrant <= {phase_delayed[31], 2'b11};
+            quadrant <= {phase_delayed[15], 2'b11};
             actual_phase <= PI - phase_abs;
         end
 

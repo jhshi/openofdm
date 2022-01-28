@@ -25,6 +25,8 @@
 		output wire ht_unsupport,
 		output wire [7:0] pkt_rate,
 		output wire [15:0] pkt_len,
+		output ht_aggr,
+		output ht_aggr_last,
 		output wire ht_sgi,
 //		output wire [15:0] pkt_len_total, // for interface to byte_to_word.v in rx_intf.v
 		output wire byte_out_strobe,
@@ -105,7 +107,7 @@
 	dot11 # ( 
 	) dot11_i (
 		.clock(s00_axi_aclk),
-		.enable( ~slv_reg1[0] ),
+		.enable( 1 ),
 		//.reset ( (~s00_axi_aresetn)|slv_reg0[0]|openofdm_core_rst ),
 		.reset ( (~s00_axi_aresetn)|slv_reg0[0] ),
 
@@ -117,6 +119,7 @@
 		.sample_in(sample_in),
 		.sample_in_strobe(sample_in_strobe),
 		.soft_decoding(slv_reg4[0]),
+		.force_ht_smoothing(slv_reg1[0]),
 
 		// OUTPUT: bytes and FCS status
 		.demod_is_ongoing(demod_is_ongoing),
@@ -181,7 +184,8 @@
 		.ht_len(),
 		.ht_smoothing(),
 		.ht_not_sounding(),
-		.ht_aggregation(),
+		.ht_aggr(ht_aggr),
+		.ht_aggr_last(ht_aggr_last),
 		.ht_stbc(),
 		.ht_fec_coding(),
 		.ht_sgi(ht_sgi),
@@ -190,6 +194,8 @@
 
 		// decoding pipeline
 		.demod_out(),
+		.demod_soft_bits(),
+		.demod_soft_bits_pos(),
 		.demod_out_strobe(),
 
 		.deinterleave_erase_out(),

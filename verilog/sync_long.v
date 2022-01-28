@@ -5,7 +5,7 @@ module sync_long (
 
     input [31:0] sample_in,
     input sample_in_strobe,
-    input signed [31:0] phase_offset,
+    input signed [15:0] phase_offset,
     input short_gi,
 
     output [`ROTATE_LUT_LEN_SHIFT-1:0] rot_addr,
@@ -20,7 +20,7 @@ module sync_long (
     output reg [15:0] num_ofdm_symbol,
 
     output reg signed [31:0] phase_offset_taken,
-    output reg [2:0] state
+    output reg [1:0] state
 );
 `include "common_params.v"
 
@@ -122,44 +122,49 @@ complex_to_mag #(.DATA_WIDTH(32)) sum_mag_inst (
 
 reg [31:0] metric_max1;
 reg [(IN_BUF_LEN_SHIFT-1):0] addr1;
-reg [31:0] metric_max2;
-reg [(IN_BUF_LEN_SHIFT-1):0] addr2;
-reg [15:0] gap;
 
-reg [31:0] cross_corr_buf[0:15];
+reg [31:0] cross_corr_buf[0:31];
 
 reg [31:0] stage_X0;
 reg [31:0] stage_X1;
 reg [31:0] stage_X2;
 reg [31:0] stage_X3;
+reg [31:0] stage_X4;
+reg [31:0] stage_X5;
+reg [31:0] stage_X6;
+reg [31:0] stage_X7;
 
 reg [31:0] stage_Y0;
 reg [31:0] stage_Y1;
 reg [31:0] stage_Y2;
 reg [31:0] stage_Y3;
+reg [31:0] stage_Y4;
+reg [31:0] stage_Y5;
+reg [31:0] stage_Y6;
+reg [31:0] stage_Y7;
 
 stage_mult stage_mult_inst (
     .clock(clock),
     .enable(enable),
     .reset(reset),
 
-    .X0(stage_X0[31:16]),
-    .X1(stage_X0[15:0]),
-    .X2(stage_X1[31:16]),
-    .X3(stage_X1[15:0]),
-    .X4(stage_X2[31:16]),
-    .X5(stage_X2[15:0]),
-    .X6(stage_X3[31:16]),
-    .X7(stage_X3[15:0]),
+    .X0(stage_X0),
+    .X1(stage_X1),
+    .X2(stage_X2),
+    .X3(stage_X3),
+    .X4(stage_X4),
+    .X5(stage_X5),
+    .X6(stage_X6),
+    .X7(stage_X7),
 
-    .Y0(stage_Y0[31:16]),
-    .Y1(stage_Y0[15:0]),
-    .Y2(stage_Y1[31:16]),
-    .Y3(stage_Y1[15:0]),
-    .Y4(stage_Y2[31:16]),
-    .Y5(stage_Y2[15:0]),
-    .Y6(stage_Y3[31:16]),
-    .Y7(stage_Y3[15:0]),
+    .Y0(stage_Y0),
+    .Y1(stage_Y1),
+    .Y2(stage_Y2),
+    .Y3(stage_Y3),
+    .Y4(stage_Y4),
+    .Y5(stage_Y5),
+    .Y6(stage_Y6),
+    .Y7(stage_Y7),
 
     .input_strobe(mult_strobe),
 
@@ -169,9 +174,8 @@ stage_mult stage_mult_inst (
 
 localparam S_SKIPPING = 0;
 localparam S_WAIT_FOR_FIRST_PEAK = 1;
-localparam S_WAIT_FOR_SECOND_PEAK = 2;
-localparam S_IDLE = 3;
-localparam S_FFT = 4;
+localparam S_IDLE = 2;
+localparam S_FFT = 3;
 
 reg fft_start;
 //wire fft_start_delayed;
@@ -291,7 +295,7 @@ integer i;
 integer j;
 always @(posedge clock) begin
     if (reset) begin
-        for (j = 0; j < 16; j= j+1) begin
+        for (j = 0; j < 32; j= j+1) begin
             cross_corr_buf[j] <= 0;
         end
         do_clear();
@@ -323,51 +327,25 @@ always @(posedge clock) begin
                     addr1 <= in_raddr - 1;
                 end
 
-                if (num_sample >= 64) begin
+                if (num_sample >= 88) begin
+                    long_preamble_detected <= 1;
                     num_sample <= 0;
-                    addr2 <= 0;
-                    state <= S_WAIT_FOR_SECOND_PEAK;
+                    mult_strobe <= 0;
+                    sum_stb <= 0;
+                    // offset it by the length of cross correlation buffer
+                    // size
+                    in_raddr <= addr1 - 32;
+                    num_input_consumed <= addr1 - 32;
+                    in_offset <= 0;
+                    num_ofdm_symbol <= 0;
+                    phase_correction <= 0;
+                    next_phase_correction <= phase_offset;
+                    phase_offset_taken <= phase_offset;
+                    state <= S_FFT;
                 end else if (metric_stb) begin
                     num_sample <= num_sample + 1;
                 end
 
-            end
-
-            S_WAIT_FOR_SECOND_PEAK: begin
-                do_mult();
-
-                if (metric_stb && (metric > metric_max2)) begin
-                    metric_max2 <= metric;
-                    addr2 <= in_raddr - 1;
-                end
-                gap <= addr2 - addr1;
-
-                if (num_sample >= 64) begin
-                    `ifdef DEBUG_PRINT
-                        $display("PEAK GAP: %d (%d - %d)", gap, addr2, addr1);
-                        $display("PHASE OFFSET: %d", phase_offset);
-                    `endif
-                    if (gap > 62 && gap < 66) begin
-                        long_preamble_detected <= 1;
-                        num_sample <= 0;
-                        mult_strobe <= 0;
-                        sum_stb <= 0;
-                        // offset it by the length of cross correlation buffer
-                        // size
-                        in_raddr <= addr1 - 16;
-                        num_input_consumed <= addr1 - 16;
-                        in_offset <= 0;
-                        num_ofdm_symbol <= 0;
-                        phase_correction <= 0;
-                        next_phase_correction <= phase_offset;
-                        phase_offset_taken <= phase_offset;
-                        state <= S_FFT;
-                    end else begin
-                        state <= S_IDLE;
-                    end
-                end else if (metric_stb) begin
-                    num_sample <= num_sample + 1;
-                end
             end
 
             S_FFT: begin
@@ -378,7 +356,7 @@ always @(posedge clock) begin
                     long_preamble_detected <= 0;
                 end
 
-                if (~fft_loading && num_input_avail > 64) begin
+                if (~fft_loading && num_input_avail > 88) begin
                     fft_start <= 1;
                     in_offset <= 0;
                 end
@@ -393,18 +371,30 @@ always @(posedge clock) begin
                     if (phase_offset > 0) begin
                         if (next_phase_correction > PI) begin
                             phase_correction <= next_phase_correction - DOUBLE_PI;
-                            next_phase_correction <= next_phase_correction + phase_offset - DOUBLE_PI;
+                            if(in_offset == 63 && num_ofdm_symbol > 0)
+                                next_phase_correction <= next_phase_correction - DOUBLE_PI + phase_offset + (short_gi ? phase_offset<<<3 : phase_offset<<<4);
+                            else
+                                next_phase_correction <= next_phase_correction - DOUBLE_PI + phase_offset;
                         end else begin
                             phase_correction <= next_phase_correction;
-                            next_phase_correction <= next_phase_correction + phase_offset;
+                            if(in_offset == 63 && num_ofdm_symbol > 0)
+                                next_phase_correction <= next_phase_correction + phase_offset + (short_gi ? phase_offset<<<3 : phase_offset<<<4);
+                            else
+                                next_phase_correction <= next_phase_correction + phase_offset;
                         end
                     end else begin
                         if (next_phase_correction < -PI) begin
                             phase_correction <= next_phase_correction + DOUBLE_PI;
-                            next_phase_correction <= next_phase_correction + DOUBLE_PI + phase_offset;
+                            if(in_offset == 63 && num_ofdm_symbol > 0)
+                                next_phase_correction <= next_phase_correction + DOUBLE_PI + phase_offset + (short_gi ? phase_offset<<<3 : phase_offset<<<4);
+                            else
+                                next_phase_correction <= next_phase_correction + DOUBLE_PI + phase_offset;
                         end else begin
                             phase_correction <= next_phase_correction;
-                            next_phase_correction <= next_phase_correction + phase_offset;
+                            if(in_offset == 63 && num_ofdm_symbol > 0)
+                                next_phase_correction <= next_phase_correction + phase_offset + (short_gi ? phase_offset<<<3 : phase_offset<<<4);
+                            else
+                                next_phase_correction <= next_phase_correction + phase_offset;
                         end
                     end
                 end
@@ -454,8 +444,8 @@ integer do_mult_i;
 task do_mult; begin
     // cross correlation of the first 16 samples of LTS
     if (sample_in_strobe) begin
-        cross_corr_buf[15] <= sample_in;
-        for (do_mult_i = 0; do_mult_i < 15; do_mult_i = do_mult_i+1) begin
+        cross_corr_buf[31] <= sample_in;
+        for (do_mult_i = 0; do_mult_i < 31; do_mult_i = do_mult_i+1) begin
             cross_corr_buf[do_mult_i] <= cross_corr_buf[do_mult_i+1];
         end
 
@@ -468,66 +458,82 @@ task do_mult; begin
         stage_X1 <= cross_corr_buf[2];
         stage_X2 <= cross_corr_buf[3];
         stage_X3 <= cross_corr_buf[4];
+        stage_X4 <= cross_corr_buf[5];
+        stage_X5 <= cross_corr_buf[6];
+        stage_X6 <= cross_corr_buf[7];
+        stage_X7 <= cross_corr_buf[8];
 
-        stage_Y0[31:16] <= 156;
-        stage_Y0[15:0] <= 0;
-        stage_Y1[31:16] <= -5;
-        stage_Y1[15:0] <= 120;
-        stage_Y2[31:16] <= 40;
-        stage_Y2[15:0] <= 111;
-        stage_Y3[31:16] <= 97;
-        stage_Y3[15:0] <= -83;
+        stage_Y0 <= { 16'd156, 16'd0};
+        stage_Y1 <= {-16'd5,   16'd120};
+        stage_Y2 <= { 16'd40,  16'd111};
+        stage_Y3 <= { 16'd97, -16'd83};
+        stage_Y4 <= { 16'd21, -16'd28};
+        stage_Y5 <= { 16'd60,  16'd88};
+        stage_Y6 <= {-16'd115, 16'd55};
+        stage_Y7 <= {-16'd38,  16'd106};
 
         mult_strobe <= 1;
         mult_stage <= 1;
     end
 
     if (mult_stage == 1) begin
-        stage_X0 <= cross_corr_buf[4];
-        stage_X1 <= cross_corr_buf[5];
-        stage_X2 <= cross_corr_buf[6];
-        stage_X3 <= cross_corr_buf[7];
-
-        stage_Y0[31:16] <= 21;
-        stage_Y0[15:0] <= -28;
-        stage_Y1[31:16] <= 60;
-        stage_Y1[15:0] <= 88;
-        stage_Y2[31:16] <= -115;
-        stage_Y2[15:0] <= 55;
-        stage_Y3[31:16] <= -38;
-        stage_Y3[15:0] <= 106;
-
-        mult_stage <= 2;
-    end else if (mult_stage == 2) begin
         stage_X0 <= cross_corr_buf[8];
         stage_X1 <= cross_corr_buf[9];
         stage_X2 <= cross_corr_buf[10];
         stage_X3 <= cross_corr_buf[11];
+        stage_X4 <= cross_corr_buf[12];
+        stage_X5 <= cross_corr_buf[13];
+        stage_X6 <= cross_corr_buf[14];
+        stage_X7 <= cross_corr_buf[15];
 
-        stage_Y0[31:16] <= 98;
-        stage_Y0[15:0] <= 26;
-        stage_Y1[31:16] <= 53;
-        stage_Y1[15:0] <= -4;
-        stage_Y2[31:16] <= 1;
-        stage_Y2[15:0] <= 115;
-        stage_Y3[31:16] <= -137;
-        stage_Y3[15:0] <= 47;
+        stage_Y0 <= { 16'd98,  16'd26};
+        stage_Y1 <= { 16'd53, -16'd4};
+        stage_Y2 <= { 16'd1,   16'd115};
+        stage_Y3 <= {-16'd137, 16'd47};
+        stage_Y4 <= { 16'd24,  16'd59};
+        stage_Y5 <= { 16'd59,  16'd15};
+        stage_Y6 <= {-16'd22, -16'd161};
+        stage_Y7 <= { 16'd119, 16'd4};
+
+        mult_stage <= 2;
+    end else if (mult_stage == 2) begin
+        stage_X0 <= cross_corr_buf[16];
+        stage_X1 <= cross_corr_buf[17];
+        stage_X2 <= cross_corr_buf[18];
+        stage_X3 <= cross_corr_buf[19];
+        stage_X4 <= cross_corr_buf[20];
+        stage_X5 <= cross_corr_buf[21];
+        stage_X6 <= cross_corr_buf[22];
+        stage_X7 <= cross_corr_buf[23];
+
+        stage_Y0 <= { 16'd62,    16'd62};
+        stage_Y1 <= { 16'd37,  -16'd98};
+        stage_Y2 <= {-16'd57,  -16'd39};
+        stage_Y3 <= {-16'd131, -16'd65};
+        stage_Y4 <= { 16'd82,  -16'd92};
+        stage_Y5 <= { 16'd70,  -16'd14};
+        stage_Y6 <= {-16'd60,  -16'd81};
+        stage_Y7 <= {-16'd56,   16'd22};
 
         mult_stage <= 3;
     end else if (mult_stage == 3) begin
-        stage_X0 <= cross_corr_buf[12];
-        stage_X1 <= cross_corr_buf[13];
-        stage_X2 <= cross_corr_buf[14];
-        stage_X3 <= cross_corr_buf[15];
+        stage_X0 <= cross_corr_buf[24];
+        stage_X1 <= cross_corr_buf[25];
+        stage_X2 <= cross_corr_buf[26];
+        stage_X3 <= cross_corr_buf[27];
+        stage_X4 <= cross_corr_buf[28];
+        stage_X5 <= cross_corr_buf[29];
+        stage_X6 <= cross_corr_buf[30];
+        stage_X7 <= cross_corr_buf[31];
 
-        stage_Y0[31:16] <= 24;
-        stage_Y0[15:0] <= 59;
-        stage_Y1[31:16] <= 59;
-        stage_Y1[15:0] <= 15;
-        stage_Y2[31:16] <= -22;
-        stage_Y2[15:0] <= -161;
-        stage_Y3[31:16] <= 119;
-        stage_Y3[15:0] <= 4;
+        stage_Y0 <= {-16'd35,  16'd151};
+        stage_Y1 <= {-16'd122, 16'd17};
+        stage_Y2 <= {-16'd127, 16'd21};
+        stage_Y3 <= { 16'd75,  16'd74};
+        stage_Y4 <= {-16'd3,  -16'd54};
+        stage_Y5 <= {-16'd92, -16'd115};
+        stage_Y6 <= { 16'd92, -16'd106};
+        stage_Y7 <= { 16'd12, -16'd98};
 
         mult_stage <= 4;
     end else if (mult_stage == 4) begin
@@ -553,7 +559,6 @@ end
 endtask
 
 task do_clear; begin
-    gap <= 0;
 
     in_waddr <= 0;
     in_raddr <= 0;
@@ -575,8 +580,6 @@ task do_clear; begin
 
     metric_max1 <= 0;
     addr1 <= 0;
-    metric_max2 <= 0;
-    addr2 <= 0;
 
     mult_stage <= 0;
 
@@ -594,11 +597,19 @@ task do_clear; begin
     stage_X1 <= 0;
     stage_X2 <= 0;
     stage_X3 <= 0;
+    stage_X4 <= 0;
+    stage_X5 <= 0;
+    stage_X6 <= 0;
+    stage_X7 <= 0;
 
     stage_Y0 <= 0;
     stage_Y1 <= 0;
     stage_Y2 <= 0;
     stage_Y3 <= 0;
+    stage_Y4 <= 0;
+    stage_Y5 <= 0;
+    stage_Y6 <= 0;
+    stage_Y7 <= 0;
 end
 endtask
 

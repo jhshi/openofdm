@@ -12,14 +12,14 @@ module sync_short (
 
     output reg short_preamble_detected,
 
-    input [31:0] phase_out,
+    input [15:0] phase_out,
     input phase_out_stb,
 
     output [31:0] phase_in_i,
     output [31:0] phase_in_q,
     output phase_in_stb,
 
-    output reg signed [31:0] phase_offset
+    output reg signed [15:0] phase_offset
 );
 `include "common_params.v"
 
@@ -52,7 +52,8 @@ wire [31:0] freq_offset_i;
 wire [31:0] freq_offset_q;
 wire freq_offset_stb;
 
-reg [31:0] phase_out_neg;
+reg [15:0] phase_out_neg;
+reg [15:0] phase_offset_neg;
 
 wire [31:0] delay_prod_avg_mag;
 wire delay_prod_avg_mag_stb;
@@ -81,7 +82,8 @@ reg has_neg;
 // =============save signal to file for matlab bit-true comparison===========
 integer file_open_trigger = 0;
 integer mag_sq_fd, mag_sq_avg_fd, prod_fd, prod_avg_fd, phase_in_fd, phase_out_fd, delay_prod_avg_mag_fd;
-wire signed [31:0] prod_i, prod_q, prod_avg_i, prod_avg_q, phase_in_i_signed, phase_in_q_signed, phase_out_signed;
+wire signed [31:0] prod_i, prod_q, prod_avg_i, prod_avg_q, phase_in_i_signed, phase_in_q_signed;
+wire signed [15:0] phase_out_signed;
 assign prod_i = prod[63:32];
 assign prod_q = prod[31:0];
 assign prod_avg_i = prod_avg[63:32];
@@ -270,6 +272,7 @@ always @(posedge clock) begin
         has_neg <= neg_count > min_neg;
 
         phase_out_neg <= ~phase_out + 1;
+        phase_offset_neg <= {{4{phase_out[15]}}, phase_out[15:4]};
 
         prod_thres <= {1'b0, mag_sq_avg[31:1]} + {2'b0, mag_sq_avg[31:2]};
         
@@ -285,7 +288,10 @@ always @(posedge clock) begin
                     pos_count <= 0;
                     neg_count <= 0;
                     short_preamble_detected <= has_pos & has_neg;
-                    phase_offset <= {{4{phase_out_neg[31]}}, phase_out_neg[31:4]};
+                    if(phase_out_neg[3] == 0)  // E.g. 131/16 = 8.1875 -> 8, -138/16 = -8.625 -> -9
+                        phase_offset <= {{4{phase_out_neg[15]}}, phase_out_neg[15:4]};
+                    else  // E.g. -131/16 = -8.1875 -> -8, 138/16 = 8.625 -> 9
+                        phase_offset <= ~phase_offset_neg + 1;
                 end else begin
                     plateau_count <= plateau_count + 1;
                     short_preamble_detected <= 0;

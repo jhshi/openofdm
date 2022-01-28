@@ -26,6 +26,8 @@ wire [31:0] equalizer_out;
 wire equalizer_out_strobe;
 
 wire [5:0] demod_out;
+wire [5:0] demod_soft_bits;
+wire [3:0] demod_soft_bits_pos;
 wire demod_out_strobe;
 
 wire [7:0] deinterleave_erase_out;
@@ -76,6 +78,8 @@ integer sync_long_out_fd;
 integer equalizer_out_fd;
 
 integer demod_out_fd;
+integer demod_soft_bits_fd;
+integer demod_soft_bits_pos_fd;
 integer deinterleave_erase_out_fd;
 integer conv_out_fd;
 integer descramble_out_fd;
@@ -86,21 +90,26 @@ integer byte_out_fd;
 
 integer file_i, file_q, file_rssi_half_db, iq_sample_file;
 
-//`define SPEED_100M // comment out this to use 200M
+// ONLY allow 100(low FPGA), 200(high FPGA), 240(ultra_scal FPGA) and 400(test)
+// do NOT turn on more than one of them
+`define CLK_SPEED_100M
+//`define CLK_SPEED_200M
+//`define CLK_SPEED_240M  
+//`define CLK_SPEED_400M
 
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_ht_unsupport_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_wrong_ht_sig_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_wrong_sig_openwifi.txt"
-`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_6.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_52mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/radiated/dot11n_19.5mbps_openwifi.txt"
-//`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_58.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
+`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_58.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_65mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt" 
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11a_48mbps_qos_data_e4_90_7e_15_2a_16_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/radiated/ack-ok-openwifi.txt"
 
-`define NUM_SAMPLE 8560
+`define NUM_SAMPLE 118560
 
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/openofdm_tx/PL_100Bytes/54Mbps.txt"
 //`define NUM_SAMPLE 2048
@@ -144,6 +153,8 @@ always @(posedge clock) begin
         equalizer_out_fd = $fopen("./equalizer_out.txt", "w");
 
         demod_out_fd = $fopen("./demod_out.txt", "w");
+        demod_soft_bits_fd = $fopen("./demod_soft_bits.txt", "w");
+        demod_soft_bits_pos_fd = $fopen("./demod_soft_bits_pos.txt", "w");
         deinterleave_erase_out_fd = $fopen("./deinterleave_erase_out.txt", "w");
         conv_out_fd = $fopen("./conv_out.txt", "w");
         descramble_out_fd = $fopen("./descramble_out.txt", "w");
@@ -154,15 +165,17 @@ always @(posedge clock) begin
     end
 end
 
-`ifdef SPEED_100M
-    always begin //100MHz
+    always begin
+`ifdef CLK_SPEED_100M
         #5 clock = !clock;
-    end
-`else
-    always begin //200MHz
+`elsif CLK_SPEED_200M
         #2.5 clock = !clock;
-    end
+`elsif CLK_SPEED_240M
+        #2.0833333333 clock = !clock;
+`elsif CLK_SPEED_400M
+        #1.25 clock = !clock;
 `endif
+    end
 
 always @(posedge clock) begin
     if (reset) begin
@@ -171,10 +184,14 @@ always @(posedge clock) begin
         sample_in_strobe <= 0;
         addr <= 0;
     end else if (enable) begin
-        `ifdef SPEED_100M
+        `ifdef CLK_SPEED_100M
     	if (clk_count == 4) begin  // for 100M; 100/20 = 5
-    	`else
+    	`elsif CLK_SPEED_200M
         if (clk_count == 9) begin // for 200M; 200/20 = 10
+        `elsif CLK_SPEED_240M
+        if (clk_count == 11) begin // for 200M; 240/20 = 12
+        `elsif CLK_SPEED_400M
+        if (clk_count == 19) begin // for 200M; 400/20 = 20
         `endif
             sample_in_strobe <= 1;
             //$fscanf(iq_sample_file, "%d %d %d", file_i, file_q, file_rssi_half_db);
@@ -225,6 +242,8 @@ always @(posedge clock) begin
                 $fclose(equalizer_out_fd);
 
                 $fclose(demod_out_fd);
+                $fclose(demod_soft_bits_fd);
+                $fclose(demod_soft_bits_pos_fd);
                 $fclose(deinterleave_erase_out_fd);
                 $fclose(conv_out_fd);
                 $fclose(descramble_out_fd);
@@ -257,27 +276,31 @@ always @(posedge clock) begin
             $fflush(signal_fd);
         end
 
-        if (dot11_state == S_DECODE_DATA && demod_out_strobe) begin
+        if ((dot11_state == S_MPDU_DELIM || dot11_state == S_DECODE_DATA || dot11_state == S_MPDU_PAD) && demod_out_strobe) begin
             $fwrite(demod_out_fd, "%b %b %b %b %b %b\n",demod_out[0],demod_out[1],demod_out[2],demod_out[3],demod_out[4],demod_out[5]);
+            $fwrite(demod_soft_bits_fd, "%b %b %b %b %b %b\n",demod_soft_bits[0],demod_soft_bits[1],demod_soft_bits[2],demod_soft_bits[3],demod_soft_bits[4],demod_soft_bits[5]);
+            $fwrite(demod_soft_bits_pos_fd, "%b %b %b %b\n",demod_soft_bits_pos[0],demod_soft_bits_pos[1],demod_soft_bits_pos[2],demod_soft_bits_pos[3]);
             $fflush(demod_out_fd);
+            $fflush(demod_soft_bits_fd);
+            $fflush(demod_soft_bits_pos_fd);
         end
 
-        if (dot11_state == S_DECODE_DATA && deinterleave_erase_out_strobe) begin
+        if ((dot11_state == S_MPDU_DELIM || dot11_state == S_DECODE_DATA || dot11_state == S_MPDU_PAD) && deinterleave_erase_out_strobe) begin
             $fwrite(deinterleave_erase_out_fd, "%b %b %b %b %b %b %b %b\n", deinterleave_erase_out[0], deinterleave_erase_out[1], deinterleave_erase_out[2],  deinterleave_erase_out[3], deinterleave_erase_out[4], deinterleave_erase_out[5], deinterleave_erase_out[6],  deinterleave_erase_out[7]);
             $fflush(deinterleave_erase_out_fd);
         end
 
-        if (dot11_state == S_DECODE_DATA && conv_decoder_out_stb) begin
+        if ((dot11_state == S_MPDU_DELIM || dot11_state == S_DECODE_DATA || dot11_state == S_MPDU_PAD) && conv_decoder_out_stb) begin
             $fwrite(conv_out_fd, "%b\n", conv_decoder_out);
             $fflush(conv_out_fd);
         end
 
-        if (dot11_state == S_DECODE_DATA && descramble_out_strobe) begin
+        if ((dot11_state == S_MPDU_DELIM || dot11_state == S_DECODE_DATA || dot11_state == S_MPDU_PAD) && descramble_out_strobe) begin
             $fwrite(descramble_out_fd, "%b\n", descramble_out);
             $fflush(descramble_out_fd);
         end
 
-        if (dot11_state == S_DECODE_DATA && byte_out_strobe) begin
+        if ((dot11_state == S_MPDU_DELIM || dot11_state == S_DECODE_DATA || dot11_state == S_MPDU_PAD) && byte_out_strobe) begin
             $fwrite(byte_out_fd, "%02x\n", byte_out);
             $fflush(byte_out_fd);
         end
@@ -335,6 +358,8 @@ dot11 dot11_inst (
     .legacy_sig_tail(legacy_sig_tail),
 
     .demod_out(demod_out),
+    .demod_soft_bits(demod_soft_bits),
+    .demod_soft_bits_pos(demod_soft_bits_pos),
     .demod_out_strobe(demod_out_strobe),
 
     .deinterleave_erase_out(deinterleave_erase_out),

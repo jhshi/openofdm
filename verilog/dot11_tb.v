@@ -90,21 +90,26 @@ integer byte_out_fd;
 
 integer file_i, file_q, file_rssi_half_db, iq_sample_file;
 
-//`define SPEED_100M // comment out this to use 200M
+// ONLY allow 100(low FPGA), 200(high FPGA), 240(ultra_scal FPGA) and 400(test)
+// do NOT turn on more than one of them
+`define CLK_SPEED_100M
+//`define CLK_SPEED_200M
+//`define CLK_SPEED_240M  
+//`define CLK_SPEED_400M
 
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_ht_unsupport_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_wrong_ht_sig_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_wrong_sig_openwifi.txt"
-`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/iq_11n_mcs7_gi0_100B_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_6.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_52mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/radiated/dot11n_19.5mbps_openwifi.txt"
-//`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_58.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
+`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_58.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_65mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt" 
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11a_48mbps_qos_data_e4_90_7e_15_2a_16_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/radiated/ack-ok-openwifi.txt"
 
-`define NUM_SAMPLE 8560
+`define NUM_SAMPLE 118560
 
 //`define SAMPLE_FILE "../../../../../testing_inputs/simulated/openofdm_tx/PL_100Bytes/54Mbps.txt"
 //`define NUM_SAMPLE 2048
@@ -160,15 +165,17 @@ always @(posedge clock) begin
     end
 end
 
-`ifdef SPEED_100M
-    always begin //100MHz
+    always begin
+`ifdef CLK_SPEED_100M
         #5 clock = !clock;
-    end
-`else
-    always begin //200MHz
+`elsif CLK_SPEED_200M
         #2.5 clock = !clock;
-    end
+`elsif CLK_SPEED_240M
+        #2.0833333333 clock = !clock;
+`elsif CLK_SPEED_400M
+        #1.25 clock = !clock;
 `endif
+    end
 
 always @(posedge clock) begin
     if (reset) begin
@@ -177,10 +184,14 @@ always @(posedge clock) begin
         sample_in_strobe <= 0;
         addr <= 0;
     end else if (enable) begin
-        `ifdef SPEED_100M
+        `ifdef CLK_SPEED_100M
     	if (clk_count == 4) begin  // for 100M; 100/20 = 5
-    	`else
+    	`elsif CLK_SPEED_200M
         if (clk_count == 9) begin // for 200M; 200/20 = 10
+        `elsif CLK_SPEED_240M
+        if (clk_count == 11) begin // for 200M; 240/20 = 12
+        `elsif CLK_SPEED_400M
+        if (clk_count == 19) begin // for 200M; 400/20 = 20
         `endif
             sample_in_strobe <= 1;
             //$fscanf(iq_sample_file, "%d %d %d", file_i, file_q, file_rssi_half_db);

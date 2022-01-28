@@ -20,6 +20,7 @@ module dot11 (
     input [31:0] sample_in,
     input sample_in_strobe,
     input soft_decoding,
+    input wire force_ht_smoothing,
 
     // OUTPUT: bytes and FCS status
     output reg demod_is_ongoing,
@@ -374,7 +375,7 @@ equalizer equalizer_inst (
     .sample_in_strobe(sync_long_out_strobe && !(state==S_HT_SIGNAL && num_ofdm_symbol==6)),
     .ht_next(ht_next),
     .pkt_ht(pkt_ht),
-    .ht_smoothing(ht_smoothing),
+    .ht_smoothing(ht_smoothing|force_ht_smoothing),
 
     .phase_in_i(eq_phase_in_i),
     .phase_in_q(eq_phase_in_q),

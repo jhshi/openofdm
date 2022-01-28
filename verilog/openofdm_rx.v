@@ -107,7 +107,7 @@
 	dot11 # ( 
 	) dot11_i (
 		.clock(s00_axi_aclk),
-		.enable( ~slv_reg1[0] ),
+		.enable( 1 ),
 		//.reset ( (~s00_axi_aresetn)|slv_reg0[0]|openofdm_core_rst ),
 		.reset ( (~s00_axi_aresetn)|slv_reg0[0] ),
 
@@ -119,6 +119,7 @@
 		.sample_in(sample_in),
 		.sample_in_strobe(sample_in_strobe),
 		.soft_decoding(slv_reg4[0]),
+		.force_ht_smoothing(slv_reg1[0]),
 
 		// OUTPUT: bytes and FCS status
 		.demod_is_ongoing(demod_is_ongoing),

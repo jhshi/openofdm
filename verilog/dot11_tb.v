@@ -108,6 +108,7 @@ integer file_i, file_q, file_rssi_half_db, iq_sample_file;
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_65mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt" 
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11a_48mbps_qos_data_e4_90_7e_15_2a_16_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/radiated/ack-ok-openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/conducted/fake-demod-0.txt"
 
 `define NUM_SAMPLE 118560
 

@@ -1,5 +1,7 @@
+// Xianjun jiao. putaoshu@msn.com; xianjun.jiao@imec.be;
 
 `timescale 1 ns / 1 ps
+`include "openofdm_rx_git_rev.v"
 
 	module openofdm_rx #
 	(
@@ -101,8 +103,10 @@
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg28; 
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg29; 
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg30; 
-    wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg31; 
 	*/
+    wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg31; 
+
+	assign slv_reg31 = `OPENOFDM_RX_GIT_REV;
 
 	dot11 # ( 
 	) dot11_i (
@@ -268,8 +272,8 @@
         .SLV_REG27(slv_reg27),
         .SLV_REG28(slv_reg28),
         .SLV_REG29(slv_reg29),
-        .SLV_REG30(slv_reg30),
-        .SLV_REG31(slv_reg31)*/
+        .SLV_REG30(slv_reg30),*/
+        .SLV_REG31(slv_reg31)
 	);
 	
 	endmodule

@@ -49,6 +49,7 @@ reg signal_done;
 
 wire [3:0] dot11_state;
 
+wire pkt_header_valid;
 wire pkt_header_valid_strobe;
 wire [7:0] byte_out;
 wire byte_out_strobe;
@@ -64,6 +65,10 @@ reg [7:0] set_addr;
 reg [31:0] set_data;
 
 wire fcs_out_strobe, fcs_ok;
+wire demod_is_ongoing;
+wire receiver_rst;
+
+wire sig_valid = (pkt_header_valid_strobe&pkt_header_valid);
 
 integer addr;
 
@@ -309,10 +314,28 @@ always @(posedge clock) begin
     end
 end
 
+signal_watchdog signal_watchdog_inst (
+    .clk(clock),
+    .rstn(~reset),
+    .enable(~demod_is_ongoing),
+
+    .i_data(sample_in[31:16]),
+    .q_data(sample_in[15:0]),
+    .iq_valid(sample_in_strobe),
+
+    .signal_len(pkt_len),
+    .sig_valid(sig_valid),
+
+    .max_signal_len_th(137),
+    .dc_running_sum_th(62),
+
+    .receiver_rst(receiver_rst)
+);
+
 dot11 dot11_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|receiver_rst),
 
     //.set_stb(set_stb),
     //.set_addr(set_addr),
@@ -326,6 +349,8 @@ dot11 dot11_inst (
     .sample_in_strobe(sample_in_strobe),
     .soft_decoding(1'b1),
 
+    .demod_is_ongoing(demod_is_ongoing),
+    .pkt_header_valid(pkt_header_valid),
     .pkt_header_valid_strobe(pkt_header_valid_strobe),
     .pkt_len(pkt_len),
     .pkt_len_total(pkt_len_total),

@@ -109,11 +109,31 @@ integer file_i, file_q, file_rssi_half_db, iq_sample_file;
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_6.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_52mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/radiated/dot11n_19.5mbps_openwifi.txt"
-`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_58.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_58.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_65mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt" 
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11a_48mbps_qos_data_e4_90_7e_15_2a_16_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/radiated/ack-ok-openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/fake-demod-0.txt"
+
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi1_aggr0_len14_pre100_post200_openwifi.txt"
+`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi1_aggr0_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi1_aggr0_len4000_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi0_aggr0_len14_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi0_aggr0_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi0_aggr0_len4000_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi1_aggr0_len14_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi1_aggr0_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi1_aggr0_len4000_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi0_aggr0_len14_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi0_aggr0_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi0_aggr0_len4000_pre100_post200_openwifi.txt"
+
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_54M_len14_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_54M_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_54M_len4000_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_6M_len14_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_6M_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_6M_len4000_pre100_post200_openwifi.txt"
 
 `define NUM_SAMPLE 118560
 
@@ -326,8 +346,8 @@ signal_watchdog signal_watchdog_inst (
     .signal_len(pkt_len),
     .sig_valid(sig_valid),
 
-    .max_signal_len_th(137),
-    .dc_running_sum_th(62),
+    .max_signal_len_th(4095),
+    .dc_running_sum_th(64),
 
     .receiver_rst(receiver_rst)
 );

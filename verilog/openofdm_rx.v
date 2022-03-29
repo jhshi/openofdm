@@ -145,6 +145,7 @@
 		.sample_in_strobe(sample_in_strobe),
 		.soft_decoding(slv_reg4[0]),
 		.force_ht_smoothing(slv_reg1[0]),
+		.disable_all_smoothing(slv_reg1[4]),
 
 		// OUTPUT: bytes and FCS status
 		.demod_is_ongoing(demod_is_ongoing),

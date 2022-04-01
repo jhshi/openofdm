@@ -1,3 +1,5 @@
+// based on Xilinx module template
+// Xianjun jiao. putaoshu@msn.com; xianjun.jiao@imec.be;
 
 `timescale 1 ns / 1 ps
 
@@ -45,8 +47,8 @@
         input  wire [C_S_AXI_DATA_WIDTH-1:0] SLV_REG27,
         input  wire [C_S_AXI_DATA_WIDTH-1:0] SLV_REG28,
         input  wire [C_S_AXI_DATA_WIDTH-1:0] SLV_REG29,
-        input  wire [C_S_AXI_DATA_WIDTH-1:0] SLV_REG30,
-        input  wire [C_S_AXI_DATA_WIDTH-1:0] SLV_REG31,*/
+        input  wire [C_S_AXI_DATA_WIDTH-1:0] SLV_REG30,*/
+        input  wire [C_S_AXI_DATA_WIDTH-1:0] SLV_REG31,
 		// User ports ends
 		// Do not modify the ports beyond this line
 
@@ -165,8 +167,8 @@
 	reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg27;
 	reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg28;
 	reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg29;
-	reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg30;
-	reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg31;*/
+	reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg30;*/
+	reg [C_S_AXI_DATA_WIDTH-1:0]	slv_reg31;
 	wire	 slv_reg_rden;
 	wire	 slv_reg_wren;
 	reg [C_S_AXI_DATA_WIDTH-1:0]	 reg_data_out;
@@ -712,8 +714,8 @@
 	        5'h1B   : reg_data_out <= slv_reg27;
 	        5'h1C   : reg_data_out <= slv_reg28;
 	        5'h1D   : reg_data_out <= slv_reg29;
-	        5'h1E   : reg_data_out <= slv_reg30;
-	        5'h1F   : reg_data_out <= slv_reg31;*/
+	        5'h1E   : reg_data_out <= slv_reg30;*/
+	        5'h1F   : reg_data_out <= slv_reg31;
 	        default : reg_data_out <= 0;
 	      endcase
 	end
@@ -752,8 +754,8 @@
           slv_reg27 <= 32'h0;
           slv_reg28 <= 32'h0;
           slv_reg29 <= 32'h0;
-          slv_reg30 <= 32'h0;
-          slv_reg31 <= 32'h0;*/
+          slv_reg30 <= 32'h0;*/
+          slv_reg31 <= 32'h0;
         end 
       else
         begin    
@@ -767,8 +769,8 @@
           slv_reg27 <= SLV_REG27;
           slv_reg28 <= SLV_REG28;
           slv_reg29 <= SLV_REG29;
-          slv_reg30 <= SLV_REG30;
-          slv_reg31 <= SLV_REG31;*/
+          slv_reg30 <= SLV_REG30;*/
+          slv_reg31 <= SLV_REG31;
         end 
     end
     

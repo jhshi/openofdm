@@ -49,6 +49,7 @@ reg signal_done;
 
 wire [3:0] dot11_state;
 
+wire pkt_header_valid;
 wire pkt_header_valid_strobe;
 wire [7:0] byte_out;
 wire byte_out_strobe;
@@ -64,6 +65,10 @@ reg [7:0] set_addr;
 reg [31:0] set_data;
 
 wire fcs_out_strobe, fcs_ok;
+wire demod_is_ongoing;
+wire receiver_rst;
+
+wire sig_valid = (pkt_header_valid_strobe&pkt_header_valid);
 
 integer addr;
 
@@ -104,10 +109,31 @@ integer file_i, file_q, file_rssi_half_db, iq_sample_file;
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_6.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_52mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/radiated/dot11n_19.5mbps_openwifi.txt"
-`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_58.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_58.5mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11n_65mbps_98_5f_d3_c7_06_27_e8_de_27_90_6e_42_openwifi.txt" 
 //`define SAMPLE_FILE "../../../../../testing_inputs/conducted/dot11a_48mbps_qos_data_e4_90_7e_15_2a_16_e8_de_27_90_6e_42_openwifi.txt"
 //`define SAMPLE_FILE "../../../../../testing_inputs/radiated/ack-ok-openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/conducted/fake-demod-0.txt"
+
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi1_aggr0_len14_pre100_post200_openwifi.txt"
+`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi1_aggr0_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi1_aggr0_len4000_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi0_aggr0_len14_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi0_aggr0_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs7_gi0_aggr0_len4000_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi1_aggr0_len14_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi1_aggr0_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi1_aggr0_len4000_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi0_aggr0_len14_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi0_aggr0_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ht_mcs0_gi0_aggr0_len4000_pre100_post200_openwifi.txt"
+
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_54M_len14_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_54M_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_54M_len4000_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_6M_len14_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_6M_len1537_pre100_post200_openwifi.txt"
+//`define SAMPLE_FILE "../../../../../testing_inputs/simulated/ag_6M_len4000_pre100_post200_openwifi.txt"
 
 `define NUM_SAMPLE 118560
 
@@ -308,10 +334,28 @@ always @(posedge clock) begin
     end
 end
 
+signal_watchdog signal_watchdog_inst (
+    .clk(clock),
+    .rstn(~reset),
+    .enable(~demod_is_ongoing),
+
+    .i_data(sample_in[31:16]),
+    .q_data(sample_in[15:0]),
+    .iq_valid(sample_in_strobe),
+
+    .signal_len(pkt_len),
+    .sig_valid(sig_valid),
+
+    .max_signal_len_th(4095),
+    .dc_running_sum_th(64),
+
+    .receiver_rst(receiver_rst)
+);
+
 dot11 dot11_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|receiver_rst),
 
     //.set_stb(set_stb),
     //.set_addr(set_addr),
@@ -325,6 +369,8 @@ dot11 dot11_inst (
     .sample_in_strobe(sample_in_strobe),
     .soft_decoding(1'b1),
 
+    .demod_is_ongoing(demod_is_ongoing),
+    .pkt_header_valid(pkt_header_valid),
     .pkt_header_valid_strobe(pkt_header_valid_strobe),
     .pkt_len(pkt_len),
     .pkt_len_total(pkt_len_total),

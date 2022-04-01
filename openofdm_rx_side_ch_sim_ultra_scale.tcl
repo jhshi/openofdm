@@ -13,6 +13,13 @@
 #
 #*****************************************************************************************
 
+# -----------generate openofdm_rx_git_rev.v---------------
+set  fd  [open  "./verilog/openofdm_rx_git_rev.v"  w]
+set HASHCODE [exec ./get_git_rev.sh]
+puts $fd "`define OPENOFDM_RX_GIT_REV (32'h$HASHCODE)"
+close $fd
+# ----end of generate openofdm_rx_git_rev.v---------------
+
 # Set the reference directory for source file relative paths (by default the value is script directory path)
 set origin_dir [file dirname [info script]]
 
@@ -23,6 +30,7 @@ if { [info exists ::origin_dir_loc] } {
 
 # Set the project name
 set project_name "openofdm_rx_side_ch_sim_ultra_scale"
+exec rm -rf $project_name
 
 # Use project name variable, if specified in the tcl shell
 if { [info exists ::user_project_name] } {

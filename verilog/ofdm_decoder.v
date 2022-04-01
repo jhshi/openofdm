@@ -39,8 +39,8 @@ reg [1:0] conv_erase, conv_erase_dly;
 wire [15:0] input_i = sample_in[31:16];
 wire [15:0] input_q = sample_in[15:0];
 
-wire vit_ce = reset | (enable & conv_in_stb) | conv_in_stb_dly;
-//wire vit_ce = 1'b1 ;
+// wire vit_ce = reset | (enable & conv_in_stb) | conv_in_stb_dly; //Seems new viter decoder IP core does not need this complicated CE signal
+wire vit_ce = 1'b1 ; //Need to be 1 to avoid the viterbi decoder freezing issue on adrv9364z7020 (demod_is_ongoing always high. dot11 stuck at state 3)
 wire vit_clr = reset;
 reg vit_clr_dly;
 wire vit_rdy;

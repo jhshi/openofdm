@@ -11,6 +11,7 @@ module equalizer
     input ht_next,
     input pkt_ht,
     input ht_smoothing,
+    input wire disable_all_smoothing,
 
     output [31:0] phase_in_i,
     output [31:0] phase_in_q,
@@ -548,8 +549,7 @@ always @(posedge clock) begin
                         lts_raddr <= 62;
                         lts_in_stb <= 0;
                         lts_div_in_stb <= 0;
-                        // Always smooth legacy channel
-                        state <= S_SMOOTH_CH_DC;
+                        state <= (disable_all_smoothing?S_GET_POLARITY:S_SMOOTH_CH_DC);
                     end else begin
                         lts_waddr <= lts_waddr + 1;
                     end
@@ -848,7 +848,7 @@ always @(posedge clock) begin
                         lts_in_stb <= 0;
                         lts_div_in_stb <= 0;
                         // Depending on smoothing bit in HT-SIG, smooth the channel
-                        if(ht_smoothing) begin
+                        if(ht_smoothing==1 && disable_all_smoothing==0) begin
                             state <= S_SMOOTH_CH_DC;
                         end else begin
                             state <= S_GET_POLARITY;

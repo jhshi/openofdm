@@ -13,6 +13,13 @@
 #
 #*****************************************************************************************
 
+# -----------generate openofdm_rx_git_rev.v---------------
+set  fd  [open  "./verilog/openofdm_rx_git_rev.v"  w]
+set HASHCODE [exec ./get_git_rev.sh]
+puts $fd "`define OPENOFDM_RX_GIT_REV (32'h$HASHCODE)"
+close $fd
+# ----end of generate openofdm_rx_git_rev.v---------------
+
 # Set the reference directory for source file relative paths (by default the value is script directory path)
 set origin_dir [file dirname [info script]]
 
@@ -23,6 +30,7 @@ if { [info exists ::origin_dir_loc] } {
 
 # Set the project name
 set project_name "openofdm_rx_ultra_scale"
+exec rm -rf $project_name
 
 # Use project name variable, if specified in the tcl shell
 if { [info exists ::user_project_name] } {
@@ -171,6 +179,8 @@ set files [list \
  "[file normalize "$origin_dir/verilog/sync_long.v"]"\
  "[file normalize "$origin_dir/verilog/sync_short.v"]"\
  "[file normalize "$origin_dir/verilog/openofdm_rx.v"]"\
+ "[file normalize "$origin_dir/verilog/running_sum_dual_ch.v"]"\
+ "[file normalize "$origin_dir/verilog/signal_watchdog.v"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/deinter_lut/deinter_lut.coe"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/atan_lut/atan_lut.coe"]"\
  "[file normalize "$origin_dir/verilog/Xilinx/zynquplus/rot_lut/rot_lut.coe"]"\
@@ -203,6 +213,15 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "used_in" -value "synthesis simulation" -objects $file_obj
 set_property -name "used_in_implementation" -value "0" -objects $file_obj
 
+set file "running_sum_dual_ch.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "used_in" -value "synthesis simulation" -objects $file_obj
+set_property -name "used_in_implementation" -value "0" -objects $file_obj
+
+set file "signal_watchdog.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "used_in" -value "synthesis simulation" -objects $file_obj
+set_property -name "used_in_implementation" -value "0" -objects $file_obj
 
 # Set 'sources_1' fileset file properties for local files
 

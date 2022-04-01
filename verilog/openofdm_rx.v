@@ -1,5 +1,7 @@
+// Xianjun jiao. putaoshu@msn.com; xianjun.jiao@imec.be;
 
 `timescale 1 ns / 1 ps
+`include "openofdm_rx_git_rev.v"
 
 	module openofdm_rx #
 	(
@@ -101,15 +103,38 @@
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg28; 
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg29; 
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg30; 
-    wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg31; 
 	*/
+    wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg31; 
+
+	assign slv_reg31 = `OPENOFDM_RX_GIT_REV;
+
+	wire sig_valid = (pkt_header_valid_strobe&pkt_header_valid);
+	wire receiver_rst;
+
+	signal_watchdog signal_watchdog_inst (
+		.clk(s00_axi_aclk),
+		.rstn(s00_axi_aresetn),
+		.enable(~demod_is_ongoing),
+
+		.i_data(sample_in[31:16]),
+		.q_data(sample_in[15:0]),
+		.iq_valid(sample_in_strobe),
+
+		.signal_len(pkt_len),
+    	.sig_valid(sig_valid),
+
+    	.max_signal_len_th(slv_reg4[31:16]),
+		.dc_running_sum_th(slv_reg2[23:16]),
+
+		.receiver_rst(receiver_rst)
+	);
 
 	dot11 # ( 
 	) dot11_i (
 		.clock(s00_axi_aclk),
 		.enable( 1 ),
 		//.reset ( (~s00_axi_aresetn)|slv_reg0[0]|openofdm_core_rst ),
-		.reset ( (~s00_axi_aresetn)|slv_reg0[0] ),
+		.reset ( (~s00_axi_aresetn)|slv_reg0[0]|receiver_rst ),
 
 		.power_thres(slv_reg2[10:0]),
 		.min_plateau(slv_reg3),
@@ -120,6 +145,7 @@
 		.sample_in_strobe(sample_in_strobe),
 		.soft_decoding(slv_reg4[0]),
 		.force_ht_smoothing(slv_reg1[0]),
+		.disable_all_smoothing(slv_reg1[4]),
 
 		// OUTPUT: bytes and FCS status
 		.demod_is_ongoing(demod_is_ongoing),
@@ -258,7 +284,7 @@
         .SLV_REG17(slv_reg17),
         .SLV_REG18(slv_reg18),
         .SLV_REG19(slv_reg19),*/
-        .SLV_REG20(slv_reg20)/*
+        .SLV_REG20(slv_reg20),/*
         .SLV_REG21(slv_reg21),
         .SLV_REG22(slv_reg22),
         .SLV_REG23(slv_reg23),
@@ -268,8 +294,8 @@
         .SLV_REG27(slv_reg27),
         .SLV_REG28(slv_reg28),
         .SLV_REG29(slv_reg29),
-        .SLV_REG30(slv_reg30),
-        .SLV_REG31(slv_reg31)*/
+        .SLV_REG30(slv_reg30),*/
+        .SLV_REG31(slv_reg31)
 	);
 	
 	endmodule

@@ -92,7 +92,7 @@ if { $::argc > 0 } {
 set src_dir "[file normalize "$origin_dir/verilog"]"
 
 # Create project
-create_project ${project_name} ./${project_name} -part xc7z045ffg900-2
+create_project ${project_name} ./${project_name} -part xc7z020clg484-1
 
 # Set the directory path for the new project
 set proj_dir [get_property directory [current_project]]
@@ -103,7 +103,7 @@ set proj_dir [get_property directory [current_project]]
 # Set project properties
 set obj [current_project]
 set_property -name "board_connections" -value "" -objects $obj
-set_property -name "board_part" -value "xilinx.com:zc706:part0:1.2" -objects $obj
+# set_property -name "board_part" -value "xilinx.com:zc706:part0:1.2" -objects $obj
 set_property -name "compxlib.activehdl_compiled_library_dir" -value "$proj_dir/${project_name}.cache/compile_simlib/activehdl" -objects $obj
 set_property -name "compxlib.funcsim" -value "1" -objects $obj
 set_property -name "compxlib.ies_compiled_library_dir" -value "$proj_dir/${project_name}.cache/compile_simlib/ies" -objects $obj

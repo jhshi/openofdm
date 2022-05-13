@@ -1,4 +1,5 @@
 `include "common_defs.v"
+`include "openofdm_rx_pre_def.v"
 
 module dot11 (
     input clock,

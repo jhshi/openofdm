@@ -16,6 +16,97 @@
 #
 #*****************************************************************************************
 
+#-----------process arguments (if exist)-------
+# set argv [] before source this .tcl to not having any arguments
+# set argv [list ARGUMENT1 ARGUMENT2 ...] to before source this .tcl to have arguments
+# argument 1: BOARD_NAME
+# argument 2: NUM_CLK_PER_US. For example: input 100 for 100MHz. Valid values: 100/200/240/400
+# argument 3: IQ sample filename with full path (for SAMPLE_FILE in dot11_tb.v). Change it in pre_def.v according to your need later on.
+# argument 4~7 (if exist): for `define OPENOFDM_RX_ARGUMENT in openofdm_rx_pre_def.v to enable some compiling time conditions
+
+set ARGUMENT1 [lindex $argv 0]
+set ARGUMENT2 [lindex $argv 1]
+set ARGUMENT3 [lindex $argv 2]
+set ARGUMENT4 [lindex $argv 3]
+set ARGUMENT5 [lindex $argv 4]
+set ARGUMENT6 [lindex $argv 5]
+set ARGUMENT7 [lindex $argv 6]
+
+if {$ARGUMENT1 eq ""} {
+  set BOARD_NAME zed_fmcs2
+} else {
+  set BOARD_NAME $ARGUMENT1
+}
+
+if {$ARGUMENT2 eq ""} {
+  set NUM_CLK_PER_US 100
+} else {
+  set NUM_CLK_PER_US $ARGUMENT2
+}
+
+source ./parse_board_name.tcl
+
+set MODULE_NAME OPENOFDM_RX
+set  fd  [open  "./verilog/openofdm_rx_pre_def.v"  w]
+if {$NUM_CLK_PER_US == 100} {
+  puts $fd "`define CLK_SPEED_100M"
+} elseif {$NUM_CLK_PER_US == 200} {
+  puts $fd "`define CLK_SPEED_200M"
+} elseif {$NUM_CLK_PER_US == 240} {
+  puts $fd "`define CLK_SPEED_240M"
+} elseif {$NUM_CLK_PER_US == 400} {
+  puts $fd "`define CLK_SPEED_400M"
+} else {
+  throw {NUM_CLK_PER_US MUST BE 100/200/240/400!}
+}
+
+if {$ARGUMENT3 eq ""} {
+  puts $fd "`define SAMPLE_FILE \"../../../../../testing_inputs/simulated/ht_mcs7_gi1_aggr0_len14_pre100_post200_openwifi.txt\""
+} else {
+  puts $fd "`define SAMPLE_FILE \"$ARGUMENT3\""
+}
+if {$ARGUMENT4 eq ""} {
+  puts $fd " "
+} else {
+  puts $fd "`define $MODULE_NAME\_$ARGUMENT4"
+}
+if {$ARGUMENT5 eq ""} {
+  puts $fd " "
+} else {
+  puts $fd "`define $MODULE_NAME\_$ARGUMENT5"
+}
+if {$ARGUMENT6 eq ""} {
+  puts $fd " "
+} else {
+  puts $fd "`define $MODULE_NAME\_$ARGUMENT6"
+}
+if {$ARGUMENT7 eq ""} {
+  puts $fd " "
+} else {
+  puts $fd "`define $MODULE_NAME\_$ARGUMENT7"
+}
+close $fd
+#-----end of process arguments (if exist)-------
+
+puts "BOARD_NAME $BOARD_NAME"
+puts "NUM_CLK_PER_US $NUM_CLK_PER_US"
+puts "ultra_scale_flag $ultra_scale_flag"
+puts "part_string $part_string"
+puts "fpga_size_flag $fpga_size_flag"
+puts "ARGUMENT3 $ARGUMENT3"
+puts "ARGUMENT4 $MODULE_NAME\_$ARGUMENT4"
+puts "ARGUMENT5 $MODULE_NAME\_$ARGUMENT5"
+puts "ARGUMENT6 $MODULE_NAME\_$ARGUMENT6"
+puts "ARGUMENT7 $MODULE_NAME\_$ARGUMENT7"
+
+#------------some defines related to sub-IP---------------------
+if {$ultra_scale_flag == 0} {
+  set ip_fix_string zynq
+} else {
+  set ip_fix_string zynquplus
+}
+#-----end of some defines related to sub-IP---------------------
+
 # -----------generate openofdm_rx_git_rev.v---------------
 set  fd  [open  "./verilog/openofdm_rx_git_rev.v"  w]
 set HASHCODE [exec ./get_git_rev.sh]
@@ -25,6 +116,15 @@ close $fd
 
 # Set the reference directory for source file relative paths (by default the value is script directory path)
 set origin_dir [file dirname [info script]]
+
+#----------Copy the IP files to a dedicated/git-un-tracked ip_repo folder-----------------------
+#----------because they will be changed during status reporting and upgrading at the end--------
+file delete -force $origin_dir/ip_repo
+file mkdir $origin_dir/ip_repo
+
+file copy -force $origin_dir/verilog/coregen/div_gen_new_ip_core_$ip_fix_string $origin_dir/ip_repo/div_gen_new
+exec cp -rf $origin_dir/verilog/Xilinx/$ip_fix_string/. $origin_dir/ip_repo/
+#---end of copy---------------------------------------------------------------------------------
 
 # Use origin directory path location variable, if specified in the tcl shell
 if { [info exists ::origin_dir_loc] } {
@@ -92,7 +192,7 @@ if { $::argc > 0 } {
 set src_dir "[file normalize "$origin_dir/verilog"]"
 
 # Create project
-create_project ${project_name} ./${project_name} -part xc7z020clg484-1
+create_project ${project_name} ./${project_name} -part $part_string
 
 # Set the directory path for the new project
 set proj_dir [get_property directory [current_project]]
@@ -145,7 +245,7 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 
 # Set IP repository paths
 set obj [get_filesets sources_1]
-set_property "ip_repo_paths" "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynq"]" $obj
+set_property "ip_repo_paths" "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_$ip_fix_string"]" $obj
 
 # Rebuild user ip_repo's index before adding any source files
 update_ip_catalog -rebuild
@@ -153,8 +253,6 @@ update_ip_catalog -rebuild
 # Set 'sources_1' fileset object
 set obj [get_filesets sources_1]
 set files [list \
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/complex_multiplier/complex_multiplier.xci"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/atan_lut/atan_lut.xci"]"\
  "[file normalize "$origin_dir/verilog/bits_to_bytes.v"]"\
  "[file normalize "$origin_dir/verilog/calc_mean.v"]"\
  "[file normalize "$origin_dir/verilog/complex_mult.v"]"\
@@ -167,7 +265,6 @@ set files [list \
  "[file normalize "$origin_dir/verilog/common_defs.v"]"\
  "[file normalize "$origin_dir/verilog/demodulate.v"]"\
  "[file normalize "$origin_dir/verilog/descramble.v"]"\
- "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynq/src/div_gen.v"]"\
  "[file normalize "$origin_dir/verilog/divider.v"]"\
  "[file normalize "$origin_dir/verilog/dot11.v"]"\
  "[file normalize "$origin_dir/verilog/equalizer.v"]"\
@@ -184,15 +281,18 @@ set files [list \
  "[file normalize "$origin_dir/verilog/openofdm_rx.v"]"\
  "[file normalize "$origin_dir/verilog/running_sum_dual_ch.v"]"\
  "[file normalize "$origin_dir/verilog/signal_watchdog.v"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/deinter_lut/deinter_lut.coe"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/atan_lut/atan_lut.coe"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/rot_lut/rot_lut.coe"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/viterbi/viterbi_v7_0.xci"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/deinter_lut/deinter_lut.xci"]"\
- "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynq/src/div_gen_div_gen_0_0/div_gen_div_gen_0_0.xci"]"\
- "[file normalize "$origin_dir/verilog/coregen/div_gen_new_ip_core_zynq/src/div_gen_xlslice_0_0/div_gen_xlslice_0_0.xci"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/xfft/xfft_v9.xci"]"\
- "[file normalize "$origin_dir/verilog/Xilinx/zynq/rot_lut/rot_lut.xci"]"\
+ "[file normalize "$origin_dir/ip_repo/complex_multiplier/complex_multiplier.xci"]"\
+ "[file normalize "$origin_dir/ip_repo/atan_lut/atan_lut.coe"]"\
+ "[file normalize "$origin_dir/ip_repo/atan_lut/atan_lut.xci"]"\
+ "[file normalize "$origin_dir/ip_repo/viterbi/viterbi_v7_0.xci"]"\
+ "[file normalize "$origin_dir/ip_repo/deinter_lut/deinter_lut.coe"]"\
+ "[file normalize "$origin_dir/ip_repo/deinter_lut/deinter_lut.xci"]"\
+ "[file normalize "$origin_dir/ip_repo/xfft/xfft_v9.xci"]"\
+ "[file normalize "$origin_dir/ip_repo/rot_lut/rot_lut.coe"]"\
+ "[file normalize "$origin_dir/ip_repo/rot_lut/rot_lut.xci"]"\
+ "[file normalize "$origin_dir/ip_repo/div_gen_new/src/div_gen.v"]"\
+ "[file normalize "$origin_dir/ip_repo/div_gen_new/src/div_gen_div_gen_0_0/div_gen_div_gen_0_0.xci"]"\
+ "[file normalize "$origin_dir/ip_repo/div_gen_new/src/div_gen_xlslice_0_0/div_gen_xlslice_0_0.xci"]"\
 ]
 # If you want to make a copy of the file to new src folder, use following command
 # set imported_files [import_files -fileset sources_1 $files]
@@ -308,7 +408,7 @@ set_property -name "xsim.simulate.xsim.more_options" -value "" -objects $obj
 
 # Create 'synth_1' run (if not found)
 if {[string equal [get_runs -quiet synth_1] ""]} {
-    create_run -name synth_1 -part xc7z045ffg900-2 -flow {Vivado Synthesis 2018} -strategy "Vivado Synthesis Defaults" -report_strategy {No Reports} -constrset constrs_1
+    create_run -name synth_1 -part $part_string -flow {Vivado Synthesis 2018} -strategy "Vivado Synthesis Defaults" -report_strategy {No Reports} -constrset constrs_1
 } else {
   set_property strategy "Vivado Synthesis Defaults" [get_runs synth_1]
   set_property flow "Vivado Synthesis 2018" [get_runs synth_1]
@@ -373,7 +473,7 @@ current_run -synthesis [get_runs synth_1]
 
 # Create 'impl_1' run (if not found)
 if {[string equal [get_runs -quiet impl_1] ""]} {
-    create_run -name impl_1 -part xc7z045ffg900-2 -flow {Vivado Implementation 2018} -strategy "Vivado Implementation Defaults" -report_strategy {No Reports} -constrset constrs_1 -parent_run synth_1
+    create_run -name impl_1 -part $part_string -flow {Vivado Implementation 2018} -strategy "Vivado Implementation Defaults" -report_strategy {No Reports} -constrset constrs_1 -parent_run synth_1
 } else {
   set_property strategy "Vivado Implementation Defaults" [get_runs impl_1]
   set_property flow "Vivado Implementation 2018" [get_runs impl_1]
@@ -778,3 +878,12 @@ set_property -name "steps.write_bitstream.args.more options" -value "" -objects 
 current_run -implementation [get_runs impl_1]
 
 puts "INFO: Project created:$project_name"
+
+#--------to avoid IP error message (parameter error or not found, need to be reported status and upgraded)-------
+update_compile_order -fileset sources_1
+report_ip_status -name ip_status 
+upgrade_ip [get_ips  {atan_lut complex_multiplier deinter_lut div_gen_div_gen_0_0 div_gen_xlslice_0_0 rot_lut viterbi_v7_0 xfft_v9}] -log ip_upgrade.log
+export_ip_user_files -of_objects [get_ips {atan_lut complex_multiplier deinter_lut div_gen_div_gen_0_0 div_gen_xlslice_0_0 rot_lut viterbi_v7_0 xfft_v9}] -no_script -sync -force -quiet
+
+update_compile_order -fileset sources_1
+report_ip_status -name ip_status 

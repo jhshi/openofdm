@@ -503,6 +503,7 @@ dot11 dot11_inst (
     .demod_is_ongoing(demod_is_ongoing),
     .pkt_header_valid(pkt_header_valid),
     .pkt_header_valid_strobe(pkt_header_valid_strobe),
+    .pkt_len(pkt_len)
 );
 
 /*

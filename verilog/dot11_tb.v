@@ -29,7 +29,8 @@ wire receiver_rst;
 
 wire sig_valid = (pkt_header_valid_strobe&pkt_header_valid);
 
-integer addr;
+integer run_out_of_iq_sample;
+integer iq_count, iq_count_tmp;
 
 // file descriptors 
 integer sample_file_name_fd;
@@ -93,6 +94,8 @@ initial begin
     $fwrite(sample_file_name_fd, "%s", `SAMPLE_FILE); 
     $fflush(sample_file_name_fd);
     $fclose(sample_file_name_fd);
+    
+    run_out_of_iq_sample = 0;
 
     clock = 0;
     reset = 1;
@@ -188,7 +191,7 @@ always @(posedge clock) begin
         sample_in <= 0;
         clk_count <= 0;
         sample_in_strobe <= 0;
-        addr <= 0;
+        iq_count <= 0;
     end else if (enable) begin
         `ifdef CLK_SPEED_100M
     	if (clk_count == 4) begin  // for 100M; 100/20 = 5
@@ -201,12 +204,15 @@ always @(posedge clock) begin
         `endif
             sample_in_strobe <= 1;
             //$fscanf(iq_sample_file, "%d %d %d", file_i, file_q, file_rssi_half_db);
-            $fscanf(iq_sample_file, "%d %d", file_i, file_q);
+            iq_count_tmp = $fscanf(iq_sample_file, "%d %d", file_i, file_q);
+            if (iq_count_tmp != 2)
+                run_out_of_iq_sample = 1;
+                
             sample_in[15:0] <= file_q;
             sample_in[31:16]<= file_i;
             //rssi_half_db <= file_rssi_half_db;
             rssi_half_db <= 0;
-            addr <= addr + 1;
+            iq_count <= iq_count + 1;
             clk_count <= 0;
         end else begin
             sample_in_strobe <= 0;
@@ -230,11 +236,11 @@ always @(posedge clock) begin
             $fflush(long_preamble_detected_fd);
 
 
-            if ((addr % 100) == 0) begin
-                $display("%d", addr);
+            if ((iq_count % 100) == 0) begin
+                $display("%d", iq_count);
             end
 
-            if (addr == `NUM_SAMPLE) begin
+            if (run_out_of_iq_sample) begin
                 $fclose(iq_sample_file);
 
                 $fclose(bb_sample_fd);

@@ -477,8 +477,8 @@ signal_watchdog signal_watchdog_inst (
     .signal_len(pkt_len),
     .sig_valid(sig_valid),
 
-    .max_signal_len_th(4095),
-    .dc_running_sum_th(64),
+    .max_signal_len_th(16'hFFFF),
+    .dc_running_sum_th(65),
 
     .receiver_rst(receiver_rst)
 );

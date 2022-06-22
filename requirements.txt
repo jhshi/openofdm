@@ -1,2 +1,2 @@
-numpy==1.11.2
+numpy==1.22.0
 wltrace==1.1.1

@@ -30,13 +30,13 @@ wire receiver_rst;
 wire sig_valid = (pkt_header_valid_strobe&pkt_header_valid);
 
 integer run_out_of_iq_sample;
-integer iq_count, iq_count_tmp;
+integer iq_count, iq_count_tmp, end_dl_count;
 
 // file descriptors 
 integer sample_file_name_fd;
 
-integer bb_sample_fd;
-integer power_trigger_fd;
+// integer bb_sample_fd;
+// integer power_trigger_fd;
 integer short_preamble_detected_fd;
 
 integer long_preamble_detected_fd;
@@ -53,6 +53,7 @@ integer descramble_out_fd;
 integer signal_fd;
 
 integer byte_out_fd;
+integer fcs_out_fd;
 
 // sync_short 
 integer mag_sq_fd;
@@ -88,14 +89,15 @@ integer equalizer_out_fd;
 integer file_i, file_q, file_rssi_half_db, iq_sample_file;
 
 initial begin
-    $dumpfile("dot11.vcd");
-    $dumpvars;
+    // $dumpfile("dot11.vcd");
+    // $dumpvars;
     sample_file_name_fd = $fopen("./sample_file_name.txt", "w");
     $fwrite(sample_file_name_fd, "%s", `SAMPLE_FILE); 
     $fflush(sample_file_name_fd);
     $fclose(sample_file_name_fd);
     
     run_out_of_iq_sample = 0;
+    end_dl_count = 0;
 
     clock = 0;
     reset = 1;
@@ -121,8 +123,8 @@ always @(posedge clock) begin
     if (file_open_trigger==1) begin
         iq_sample_file = $fopen(`SAMPLE_FILE, "r");
 
-        bb_sample_fd = $fopen("./sample_in.txt", "w");
-        power_trigger_fd = $fopen("./power_trigger.txt", "w");
+        // bb_sample_fd = $fopen("./sample_in.txt", "w");
+        // power_trigger_fd = $fopen("./power_trigger.txt", "w");
         short_preamble_detected_fd = $fopen("./short_preamble_detected.txt", "w");
 
         sync_long_metric_fd = $fopen("./sync_long_metric.txt", "w");
@@ -170,6 +172,8 @@ always @(posedge clock) begin
         equalizer_prod_scaled_fd = $fopen("./equalizer_prod_scaled.txt", "w");
         equalizer_mag_sq_fd = $fopen("./equalizer_mag_sq.txt", "w");
         equalizer_out_fd = $fopen("./equalizer_out.txt", "w");
+
+        fcs_out_fd = $fopen("./fcs_out.txt", "w");
 
     end
 end
@@ -224,14 +228,14 @@ always @(posedge clock) begin
 
         //if (sample_in_strobe && power_trigger) begin
         if (sample_in_strobe) begin
-            $fwrite(bb_sample_fd, "%d %d %d\n", $time/2, $signed(sample_in[31:16]), $signed(sample_in[15:0]));
-            $fwrite(power_trigger_fd, "%d %d\n", $time/2, dot11_inst.power_trigger);
-            $fwrite(short_preamble_detected_fd, "%d %d\n", $time/2, dot11_inst.short_preamble_detected);
+            // $fwrite(bb_sample_fd, "%d %d %d\n", iq_count, $signed(sample_in[31:16]), $signed(sample_in[15:0]));
+            // $fwrite(power_trigger_fd, "%d %d\n", iq_count, dot11_inst.power_trigger);
+            $fwrite(short_preamble_detected_fd, "%d %d\n", iq_count, dot11_inst.short_preamble_detected);
 
-            $fwrite(long_preamble_detected_fd, "%d %d\n", $time/2, dot11_inst.long_preamble_detected);
+            $fwrite(long_preamble_detected_fd, "%d %d\n", iq_count, dot11_inst.long_preamble_detected);
 
-            $fflush(bb_sample_fd);
-            $fflush(power_trigger_fd);
+            // $fflush(bb_sample_fd);
+            // $fflush(power_trigger_fd);
             $fflush(short_preamble_detected_fd);
             $fflush(long_preamble_detected_fd);
 
@@ -241,10 +245,14 @@ always @(posedge clock) begin
             end
 
             if (run_out_of_iq_sample) begin
+                end_dl_count = end_dl_count+1;
+            end
+            
+            if(end_dl_count == 300 ) begin
                 $fclose(iq_sample_file);
 
-                $fclose(bb_sample_fd);
-                $fclose(power_trigger_fd);
+                // $fclose(bb_sample_fd);
+                // $fclose(power_trigger_fd);
                 $fclose(short_preamble_detected_fd);
 
                 $fclose(sync_long_metric_fd);
@@ -262,13 +270,13 @@ always @(posedge clock) begin
 
                 $fclose(signal_fd);
                 $fclose(byte_out_fd);
-    
+                $fclose(fcs_out_fd);    
                 $finish;
             end
         end
 
         if (dot11_inst.sync_long_inst.metric_stb) begin
-            $fwrite(sync_long_metric_fd, "%d %d\n", $time/2, dot11_inst.sync_long_inst.metric);
+            $fwrite(sync_long_metric_fd, "%d %d\n", iq_count, dot11_inst.sync_long_inst.metric);
             $fflush(sync_long_metric_fd);
         end
 
@@ -276,7 +284,10 @@ always @(posedge clock) begin
             $fwrite(sync_long_out_fd, "%d %d\n", $signed(dot11_inst.sync_long_inst.sample_out[31:16]), $signed(dot11_inst.sync_long_inst.sample_out[15:0]));
             $fflush(sync_long_out_fd);
         end
-
+        if(dot11_inst.fcs_out_strobe) begin
+            $fwrite(fcs_out_fd, "%d %d\n", iq_count, dot11_inst.fcs_ok);
+            $fflush(fcs_out_fd);
+        end
         // if (dot11_inst.equalizer_inst.sample_out_strobe) begin
         //     $fwrite(equalizer_out_fd, "%d %d\n", $signed(dot11_inst.equalizer_inst.sample_out[31:16]), $signed(dot11_inst.equalizer_inst.sample_out[15:0]));
         //     $fflush(equalizer_out_fd);
@@ -370,7 +381,6 @@ always @(posedge clock) begin
             $fwrite(fft_out_fd, "%d %d\n", $signed(dot11_inst.sync_long_inst.fft_out_re[22:7]), $signed(dot11_inst.sync_long_inst.fft_out_im[22:7]));
             $fflush(fft_out_fd);
         end
-
         // equalizer 
         if ((dot11_inst.equalizer_inst.num_ofdm_sym == 1 || (dot11_inst.equalizer_inst.pkt_ht==1 && dot11_inst.equalizer_inst.num_ofdm_sym==5)) && dot11_inst.equalizer_inst.state == dot11_inst.equalizer_inst.S_CALC_FREQ_OFFSET && dot11_inst.equalizer_inst.sample_in_strobe_dly == 1 && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
             $fwrite(new_lts_fd, "%d %d\n", dot11_inst.equalizer_inst.lts_i_out, dot11_inst.equalizer_inst.lts_q_out);

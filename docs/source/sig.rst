@@ -91,7 +91,7 @@ in |project|:
 
 - MCS: only supports 0 - 7.
 - CBW 20/40: channel bandwidth. |project| only supports 20 MHz channel (0).
-- Reserved: must be 0.
+- Reserved: must be 1.
 - STBC: number of `space time block code
   <https://en.wikipedia.org/wiki/Space%E2%80%93time_block_code>`_. |project|
   only supports 00 (no STBC).

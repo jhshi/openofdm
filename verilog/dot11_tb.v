@@ -304,17 +304,20 @@ always @(posedge clock) begin
             $fflush(fcs_out_fd);
         end
         if(dot11_inst.state == S_HT_SIG_ERROR || dot11_inst.state == S_SIGNAL_ERROR) begin
-            $fwrite(status_code_fd, "%d %d\n", iq_count, dot11_inst.status_code);
+            $fwrite(status_code_fd, "%d %d %d\n", iq_count, dot11_inst.status_code, dot11_inst.state);
             $fflush(status_code_fd);    
         end
-        if (dot11_inst.legacy_sig_stb) begin
+        if (dot11_inst.legacy_sig_stb || dot11_inst.pkt_header_valid_strobe) begin
             signal_done <= 1;
-            $fwrite(signal_fd, "%d %04b %b %012b %b %06b\n", iq_count, dot11_inst.legacy_rate, dot11_inst.legacy_sig_rsvd, dot11_inst.legacy_len, dot11_inst.legacy_sig_parity, dot11_inst.legacy_sig_tail);
+            //$fwrite(signal_fd, "%d %04b %b %012b %b %06b\n", iq_count, dot11_inst.legacy_rate, dot11_inst.legacy_sig_rsvd, dot11_inst.legacy_len, dot11_inst.legacy_sig_parity, dot11_inst.legacy_sig_tail);
+            $fwrite(signal_fd, "%d %d\n", iq_count, dot11_inst.signal_bits);
             $fflush(signal_fd);
         end
         
         if (dot11_inst.ht_sig_stb) begin
-            $fwrite(ht_sig_fd, "%d %d %d %d %d %d %d %d\n", iq_count, dot11_inst.ht_mcs, dot11.ht_cbw, dot11_inst.ht_len, dot11_inst.ht_rsvd, dot11_inst.ht_aggr, dot11_inst.ht_sgi, dot11_inst.ht_sig_crc_ok);
+            //$fwrite(ht_sig_fd, "%d %d %d %d %d %d %d %d\n", iq_count, dot11_inst.ht_mcs, dot11.ht_cbw, dot11_inst.ht_len, dot11_inst.ht_rsvd, dot11_inst.ht_aggr, dot11_inst.ht_sgi, dot11_inst.ht_sig_crc_ok);
+            $fwrite(ht_sig_fd, "%d %d %d\n", iq_count, dot11_inst.ht_sig1, dot11_inst.ht_sig2);
+            $fflush(ht_sig_fd);
         end
 
         if ((dot11_inst.state == S_MPDU_DELIM || dot11_inst.state == S_DECODE_DATA || dot11_inst.state == S_MPDU_PAD) && dot11_inst.ofdm_decoder_inst.demod_out_strobe) begin

@@ -35,12 +35,11 @@ integer iq_count, iq_count_tmp, end_dl_count;
 // file descriptors 
 integer sample_file_name_fd;
 
-// integer bb_sample_fd;
-// integer power_trigger_fd;
+integer bb_sample_fd;
+integer power_trigger_fd;
 integer short_preamble_detected_fd;
 
 integer long_preamble_detected_fd;
-integer sync_long_metric_fd;
 integer sync_long_out_fd;
 
 integer demod_out_fd;
@@ -51,9 +50,11 @@ integer conv_out_fd;
 integer descramble_out_fd;
 
 integer signal_fd;
+integer ht_sig_fd; 
 
 integer byte_out_fd;
 integer fcs_out_fd;
+integer status_code_fd;
 
 // sync_short 
 integer mag_sq_fd;
@@ -70,7 +71,6 @@ integer metric_fd;
 integer phase_correction_fd;
 integer next_phase_correction_fd;
 integer fft_in_fd;
-integer fft_out_fd;
 
 // equalizer
 integer new_lts_fd;
@@ -123,25 +123,11 @@ always @(posedge clock) begin
     if (file_open_trigger==1) begin
         iq_sample_file = $fopen(`SAMPLE_FILE, "r");
 
-        // bb_sample_fd = $fopen("./sample_in.txt", "w");
-        // power_trigger_fd = $fopen("./power_trigger.txt", "w");
+        bb_sample_fd = $fopen("./sample_in.txt", "w");
+        power_trigger_fd = $fopen("./power_trigger.txt", "w");
         short_preamble_detected_fd = $fopen("./short_preamble_detected.txt", "w");
-
-        sync_long_metric_fd = $fopen("./sync_long_metric.txt", "w");
         long_preamble_detected_fd = $fopen("./sync_long_frame_detected.txt", "w");
-        sync_long_out_fd = $fopen("./sync_long_out.txt", "w");
-
-        demod_out_fd = $fopen("./demod_out.txt", "w");
-        demod_soft_bits_fd = $fopen("./demod_soft_bits.txt", "w");
-        demod_soft_bits_pos_fd = $fopen("./demod_soft_bits_pos.txt", "w");
-        deinterleave_erase_out_fd = $fopen("./deinterleave_erase_out.txt", "w");
-        conv_out_fd = $fopen("./conv_out.txt", "w");
-        descramble_out_fd = $fopen("./descramble_out.txt", "w");
-
-        signal_fd = $fopen("./signal_out.txt", "w");
-
-        byte_out_fd = $fopen("./byte_out.txt", "w");
-
+        
         // sync_short 
         mag_sq_fd = $fopen("./mag_sq.txt", "w");
         mag_sq_avg_fd = $fopen("./mag_sq_avg.txt", "w");
@@ -156,9 +142,9 @@ always @(posedge clock) begin
         metric_fd = $fopen("./metric.txt", "w");
         phase_correction_fd = $fopen("./phase_correction.txt", "w");
         next_phase_correction_fd = $fopen("./next_phase_correction.txt", "w");
-        fft_in_fd = $fopen("./fft_in.txt", "w");
-        fft_out_fd = $fopen("./fft_out.txt", "w");
-
+        fft_in_fd = $fopen("./fft_in.txt", "w");                   
+        sync_long_out_fd = $fopen("./sync_long_out.txt", "w");
+        
         // equalizer
         new_lts_fd = $fopen("./new_lts.txt", "w");
         phase_offset_pilot_input_fd = $fopen("./phase_offset_pilot_input.txt", "w");
@@ -171,9 +157,21 @@ always @(posedge clock) begin
         equalizer_prod_fd = $fopen("./equalizer_prod.txt", "w");
         equalizer_prod_scaled_fd = $fopen("./equalizer_prod_scaled.txt", "w");
         equalizer_mag_sq_fd = $fopen("./equalizer_mag_sq.txt", "w");
-        equalizer_out_fd = $fopen("./equalizer_out.txt", "w");
+        equalizer_out_fd = $fopen("./equalizer_out.txt", "w");        
 
+        // ofdm decoder
+        demod_out_fd = $fopen("./demod_out.txt", "w");
+        demod_soft_bits_fd = $fopen("./demod_soft_bits.txt", "w");
+        demod_soft_bits_pos_fd = $fopen("./demod_soft_bits_pos.txt", "w");
+        deinterleave_erase_out_fd = $fopen("./deinterleave_erase_out.txt", "w");
+        conv_out_fd = $fopen("./conv_out.txt", "w");
+        descramble_out_fd = $fopen("./descramble_out.txt", "w");
+
+        signal_fd = $fopen("./signal_out.txt", "w");
+        ht_sig_fd = $fopen("./ht_sig_out.txt", "w");
+        byte_out_fd = $fopen("./byte_out.txt", "w");
         fcs_out_fd = $fopen("./fcs_out.txt", "w");
+        status_code_fd = $fopen("./status_code.txt","w");
 
     end
 end
@@ -228,17 +226,10 @@ always @(posedge clock) begin
 
         //if (sample_in_strobe && power_trigger) begin
         if (sample_in_strobe) begin
-            // $fwrite(bb_sample_fd, "%d %d %d\n", iq_count, $signed(sample_in[31:16]), $signed(sample_in[15:0]));
-            // $fwrite(power_trigger_fd, "%d %d\n", iq_count, dot11_inst.power_trigger);
-            $fwrite(short_preamble_detected_fd, "%d %d\n", iq_count, dot11_inst.short_preamble_detected);
-
-            $fwrite(long_preamble_detected_fd, "%d %d\n", iq_count, dot11_inst.long_preamble_detected);
-
-            // $fflush(bb_sample_fd);
-            // $fflush(power_trigger_fd);
-            $fflush(short_preamble_detected_fd);
-            $fflush(long_preamble_detected_fd);
-
+            $fwrite(bb_sample_fd, "%d %d %d\n", iq_count, $signed(sample_in[31:16]), $signed(sample_in[15:0]));
+            $fwrite(power_trigger_fd, "%d %d\n", iq_count, dot11_inst.power_trigger);
+            $fflush(bb_sample_fd);
+            $fflush(power_trigger_fd);
 
             if ((iq_count % 100) == 0) begin
                 $display("%d", iq_count);
@@ -251,16 +242,40 @@ always @(posedge clock) begin
             if(end_dl_count == 300 ) begin
                 $fclose(iq_sample_file);
 
-                // $fclose(bb_sample_fd);
-                // $fclose(power_trigger_fd);
+                $fclose(bb_sample_fd);
+                $fclose(power_trigger_fd);
                 $fclose(short_preamble_detected_fd);
-
-                $fclose(sync_long_metric_fd);
                 $fclose(long_preamble_detected_fd);
+                
+                // close short preamble detection output files
+                $fclose(mag_sq_fd);
+                $fclose(mag_sq_avg_fd);
+                $fclose(prod_fd);
+                $fclose(prod_avg_fd);
+                $fclose(phase_in_fd);
+                $fclose(phase_out_fd);
+                $fclose(delay_prod_avg_mag_fd);
+                // close long preamble detection output files
+                $fclose(sum_fd);
+                $fclose(metric_fd);
+                $fclose(phase_correction_fd);
+                $fclose(next_phase_correction_fd);
+                $fclose(fft_in_fd);
                 $fclose(sync_long_out_fd);
-
+                // close equalizer output files
+                $fclose(new_lts_fd);
+                $fclose(phase_offset_pilot_input_fd);
+                $fclose(phase_offset_lts_input_fd);
+                $fclose(phase_offset_pilot_fd);
+                $fclose(phase_offset_pilot_sum_fd);
+                $fclose(phase_offset_phase_out_fd);
+                $fclose(rot_in_fd);
+                $fclose(rot_out_fd);
+                $fclose(equalizer_prod_fd);
+                $fclose(equalizer_prod_scaled_fd);
+                $fclose(equalizer_mag_sq_fd);
                 $fclose(equalizer_out_fd);
-
+                // close ofdm decode files
                 $fclose(demod_out_fd);
                 $fclose(demod_soft_bits_fd);
                 $fclose(demod_soft_bits_pos_fd);
@@ -269,159 +284,162 @@ always @(posedge clock) begin
                 $fclose(descramble_out_fd);
 
                 $fclose(signal_fd);
+                $fclose(ht_sig_fd);
                 $fclose(byte_out_fd);
-                $fclose(fcs_out_fd);    
+                $fclose(fcs_out_fd);
+                $fclose(status_code_fd);
                 $finish;
             end
         end
-
-        if (dot11_inst.sync_long_inst.metric_stb) begin
-            $fwrite(sync_long_metric_fd, "%d %d\n", iq_count, dot11_inst.sync_long_inst.metric);
-            $fflush(sync_long_metric_fd);
+        if(dot11_inst.short_preamble_detected) begin
+            $fwrite(short_preamble_detected_fd, "%d %d\n", iq_count, dot11_inst.sync_short_inst.phase_offset);
+            $fflush(short_preamble_detected_fd);
         end
-
-        if (dot11_inst.sync_long_inst.sample_out_strobe) begin
-            $fwrite(sync_long_out_fd, "%d %d\n", $signed(dot11_inst.sync_long_inst.sample_out[31:16]), $signed(dot11_inst.sync_long_inst.sample_out[15:0]));
-            $fflush(sync_long_out_fd);
+        if(dot11_inst.long_preamble_detected) begin
+            $fwrite(long_preamble_detected_fd, "%d %d\n", iq_count, dot11_inst.sync_long_inst.addr1);
+            $fflush(long_preamble_detected_fd);
         end
         if(dot11_inst.fcs_out_strobe) begin
             $fwrite(fcs_out_fd, "%d %d\n", iq_count, dot11_inst.fcs_ok);
             $fflush(fcs_out_fd);
         end
-        // if (dot11_inst.equalizer_inst.sample_out_strobe) begin
-        //     $fwrite(equalizer_out_fd, "%d %d\n", $signed(dot11_inst.equalizer_inst.sample_out[31:16]), $signed(dot11_inst.equalizer_inst.sample_out[15:0]));
-        //     $fflush(equalizer_out_fd);
-        // end
-
+        if(dot11_inst.state == S_HT_SIG_ERROR || dot11_inst.state == S_SIGNAL_ERROR) begin
+            $fwrite(status_code_fd, "%d %d\n", iq_count, dot11_inst.status_code);
+            $fflush(status_code_fd);    
+        end
         if (dot11_inst.legacy_sig_stb) begin
             signal_done <= 1;
-            $fwrite(signal_fd, "%04b %b %012b %b %06b", dot11_inst.legacy_rate, dot11_inst.legacy_sig_rsvd, dot11_inst.legacy_len, dot11_inst.legacy_sig_parity, dot11_inst.legacy_sig_tail);
+            $fwrite(signal_fd, "%d %04b %b %012b %b %06b\n", iq_count, dot11_inst.legacy_rate, dot11_inst.legacy_sig_rsvd, dot11_inst.legacy_len, dot11_inst.legacy_sig_parity, dot11_inst.legacy_sig_tail);
             $fflush(signal_fd);
+        end
+        
+        if (dot11_inst.ht_sig_stb) begin
+            $fwrite(ht_sig_fd, "%d %d %d %d %d %d %d %d\n", iq_count, dot11_inst.ht_mcs, dot11.ht_cbw, dot11_inst.ht_len, dot11_inst.ht_rsvd, dot11_inst.ht_aggr, dot11_inst.ht_sgi, dot11_inst.ht_sig_crc_ok);
         end
 
         if ((dot11_inst.state == S_MPDU_DELIM || dot11_inst.state == S_DECODE_DATA || dot11_inst.state == S_MPDU_PAD) && dot11_inst.ofdm_decoder_inst.demod_out_strobe) begin
-            $fwrite(demod_out_fd, "%b %b %b %b %b %b\n",dot11_inst.ofdm_decoder_inst.demod_out[0],dot11_inst.ofdm_decoder_inst.demod_out[1],dot11_inst.ofdm_decoder_inst.demod_out[2],dot11_inst.ofdm_decoder_inst.demod_out[3],dot11_inst.ofdm_decoder_inst.demod_out[4],dot11_inst.ofdm_decoder_inst.demod_out[5]);
-            $fwrite(demod_soft_bits_fd, "%b %b %b %b %b %b\n",dot11_inst.ofdm_decoder_inst.demod_soft_bits[0],dot11_inst.ofdm_decoder_inst.demod_soft_bits[1],dot11_inst.ofdm_decoder_inst.demod_soft_bits[2],dot11_inst.ofdm_decoder_inst.demod_soft_bits[3],dot11_inst.ofdm_decoder_inst.demod_soft_bits[4],dot11_inst.ofdm_decoder_inst.demod_soft_bits[5]);
-            $fwrite(demod_soft_bits_pos_fd, "%b %b %b %b\n",dot11_inst.ofdm_decoder_inst.demod_soft_bits_pos[0],dot11_inst.ofdm_decoder_inst.demod_soft_bits_pos[1],dot11_inst.ofdm_decoder_inst.demod_soft_bits_pos[2],dot11_inst.ofdm_decoder_inst.demod_soft_bits_pos[3]);
+            $fwrite(demod_out_fd, "%d %b %b %b %b %b %b\n",iq_count, dot11_inst.ofdm_decoder_inst.demod_out[0],dot11_inst.ofdm_decoder_inst.demod_out[1],dot11_inst.ofdm_decoder_inst.demod_out[2],dot11_inst.ofdm_decoder_inst.demod_out[3],dot11_inst.ofdm_decoder_inst.demod_out[4],dot11_inst.ofdm_decoder_inst.demod_out[5]);
+            $fwrite(demod_soft_bits_fd, "%d %b %b %b %b %b %b\n",iq_count, dot11_inst.ofdm_decoder_inst.demod_soft_bits[0],dot11_inst.ofdm_decoder_inst.demod_soft_bits[1],dot11_inst.ofdm_decoder_inst.demod_soft_bits[2],dot11_inst.ofdm_decoder_inst.demod_soft_bits[3],dot11_inst.ofdm_decoder_inst.demod_soft_bits[4],dot11_inst.ofdm_decoder_inst.demod_soft_bits[5]);
+            $fwrite(demod_soft_bits_pos_fd, "%d %b %b %b %b\n",iq_count, dot11_inst.ofdm_decoder_inst.demod_soft_bits_pos[0],dot11_inst.ofdm_decoder_inst.demod_soft_bits_pos[1],dot11_inst.ofdm_decoder_inst.demod_soft_bits_pos[2],dot11_inst.ofdm_decoder_inst.demod_soft_bits_pos[3]);
             $fflush(demod_out_fd);
             $fflush(demod_soft_bits_fd);
             $fflush(demod_soft_bits_pos_fd);
         end
 
         if ((dot11_inst.state == S_MPDU_DELIM || dot11_inst.state == S_DECODE_DATA || dot11_inst.state == S_MPDU_PAD) && dot11_inst.deinterleave_erase_out_strobe) begin
-            $fwrite(deinterleave_erase_out_fd, "%b %b %b %b %b %b %b %b\n", dot11_inst.deinterleave_erase_out[0], dot11_inst.deinterleave_erase_out[1], dot11_inst.deinterleave_erase_out[2], dot11_inst.deinterleave_erase_out[3], dot11_inst.deinterleave_erase_out[4], dot11_inst.deinterleave_erase_out[5], dot11_inst.deinterleave_erase_out[6],  dot11_inst.deinterleave_erase_out[7]);
+            $fwrite(deinterleave_erase_out_fd, "%d %b %b %b %b %b %b %b %b\n", iq_count, dot11_inst.deinterleave_erase_out[0], dot11_inst.deinterleave_erase_out[1], dot11_inst.deinterleave_erase_out[2], dot11_inst.deinterleave_erase_out[3], dot11_inst.deinterleave_erase_out[4], dot11_inst.deinterleave_erase_out[5], dot11_inst.deinterleave_erase_out[6],  dot11_inst.deinterleave_erase_out[7]);
             $fflush(deinterleave_erase_out_fd);
         end
 
         if ((dot11_inst.state == S_MPDU_DELIM || dot11_inst.state == S_DECODE_DATA || dot11_inst.state == S_MPDU_PAD) && dot11_inst.conv_decoder_out_stb) begin
-            $fwrite(conv_out_fd, "%b\n", dot11_inst.conv_decoder_out);
+            $fwrite(conv_out_fd, "%d %b\n", iq_count, dot11_inst.conv_decoder_out);
             $fflush(conv_out_fd);
         end
 
         if ((dot11_inst.state == S_MPDU_DELIM || dot11_inst.state == S_DECODE_DATA || dot11_inst.state == S_MPDU_PAD) && dot11_inst.descramble_out_strobe) begin
-            $fwrite(descramble_out_fd, "%b\n", dot11_inst.descramble_out);
+            $fwrite(descramble_out_fd, "%d %b\n", iq_count, dot11_inst.descramble_out);
             $fflush(descramble_out_fd);
         end
 
         if ((dot11_inst.state == S_MPDU_DELIM || dot11_inst.state == S_DECODE_DATA || dot11_inst.state == S_MPDU_PAD) && dot11_inst.byte_out_strobe) begin
-            $fwrite(byte_out_fd, "%02x\n", dot11_inst.byte_out);
+            $fwrite(byte_out_fd, "%d %02x\n", iq_count, dot11_inst.byte_out);
             $fflush(byte_out_fd);
         end
 
         // sync_short 
         if (dot11_inst.sync_short_inst.mag_sq_stb && dot11_inst.sync_short_inst.enable && ~dot11_inst.sync_short_inst.reset) begin
-            $fwrite(mag_sq_fd, "%d\n", dot11_inst.sync_short_inst.mag_sq);
+            $fwrite(mag_sq_fd, "%d %d\n", iq_count, dot11_inst.sync_short_inst.mag_sq);
             $fflush(mag_sq_fd);
         end
         if (dot11_inst.sync_short_inst.mag_sq_avg_stb && dot11_inst.sync_short_inst.enable && ~dot11_inst.sync_short_inst.reset) begin
-            $fwrite(mag_sq_avg_fd, "%d\n", dot11_inst.sync_short_inst.mag_sq_avg);
+            $fwrite(mag_sq_avg_fd, "%d %d\n", iq_count, dot11_inst.sync_short_inst.mag_sq_avg);
             $fflush(mag_sq_avg_fd);
         end
         if (dot11_inst.sync_short_inst.prod_stb && dot11_inst.sync_short_inst.enable && ~dot11_inst.sync_short_inst.reset) begin
-            $fwrite(prod_fd, "%d %d\n", dot11_inst.sync_short_inst.prod[63:32], dot11_inst.sync_short_inst.prod[31:0]);
+            $fwrite(prod_fd, "%d %d %d\n", iq_count, $signed(dot11_inst.sync_short_inst.prod[63:32]), $signed(dot11_inst.sync_short_inst.prod[31:0]));
             $fflush(prod_fd);
         end
         if (dot11_inst.sync_short_inst.prod_avg_stb && dot11_inst.sync_short_inst.enable && ~dot11_inst.sync_short_inst.reset) begin
-            $fwrite(prod_avg_fd, "%d %d\n", dot11_inst.sync_short_inst.prod_avg[63:32], dot11_inst.sync_short_inst.prod_avg[31:0]);
+            $fwrite(prod_avg_fd, "%d %d %d\n", iq_count, $signed(dot11_inst.sync_short_inst.prod_avg[63:32]), $signed(dot11_inst.sync_short_inst.prod_avg[31:0]));
             $fflush(prod_avg_fd);
         end
         if (dot11_inst.sync_short_inst.phase_in_stb && dot11_inst.sync_short_inst.enable && ~dot11_inst.sync_short_inst.reset) begin
-            $fwrite(phase_in_fd, "%d %d\n", dot11_inst.sync_short_inst.phase_in_i, dot11_inst.sync_short_inst.phase_in_q);
+            $fwrite(phase_in_fd, "%d %d %d\n", iq_count, $signed(dot11_inst.sync_short_inst.phase_in_i), $signed(dot11_inst.sync_short_inst.phase_in_q));
             $fflush(phase_in_fd);
         end
         if (dot11_inst.sync_short_inst.phase_out_stb && dot11_inst.sync_short_inst.enable && ~dot11_inst.sync_short_inst.reset) begin
-            $fwrite(phase_out_fd, "%d\n", $signed(dot11_inst.sync_short_inst.phase_out));
+            $fwrite(phase_out_fd, "%d %d\n", iq_count, $signed(dot11_inst.sync_short_inst.phase_out));
             $fflush(phase_out_fd);
         end
         if (dot11_inst.sync_short_inst.delay_prod_avg_mag_stb && dot11_inst.sync_short_inst.enable && ~dot11_inst.sync_short_inst.reset) begin
-            $fwrite(delay_prod_avg_mag_fd, "%d\n", dot11_inst.sync_short_inst.delay_prod_avg_mag);
+            $fwrite(delay_prod_avg_mag_fd, "%d %d\n", iq_count, dot11_inst.sync_short_inst.delay_prod_avg_mag);
             $fflush(delay_prod_avg_mag_fd);
         end
 
         // sync_long 
         if (dot11_inst.sync_long_inst.sum_stb && dot11_inst.sync_long_inst.enable && ~dot11_inst.sync_long_inst.reset) begin
-            $fwrite(sum_fd, "%d %d\n", dot11_inst.sync_long_inst.sum_i, dot11_inst.sync_long_inst.sum_q);
+            $fwrite(sum_fd, "%d %d %d\n", iq_count, dot11_inst.sync_long_inst.sum_i, dot11_inst.sync_long_inst.sum_q);
             $fflush(sum_fd);
         end
         if (dot11_inst.sync_long_inst.metric_stb && dot11_inst.sync_long_inst.enable && ~dot11_inst.sync_long_inst.reset) begin
-            $fwrite(metric_fd, "%d\n", dot11_inst.sync_long_inst.metric);
+            $fwrite(metric_fd, "%d %d\n", iq_count, dot11_inst.sync_long_inst.metric);
             $fflush(metric_fd);
         end
         if (dot11_inst.sync_long_inst.raw_stb && dot11_inst.sync_long_inst.enable && ~dot11_inst.sync_long_inst.reset) begin
-            $fwrite(phase_correction_fd, "%d\n", dot11_inst.sync_long_inst.phase_correction);
+            $fwrite(phase_correction_fd, "%d %d\n", iq_count, dot11_inst.sync_long_inst.phase_correction);
             $fflush(phase_correction_fd);
-            $fwrite(next_phase_correction_fd, "%d\n", dot11_inst.sync_long_inst.next_phase_correction);
+            $fwrite(next_phase_correction_fd, "%d %d\n", iq_count, dot11_inst.sync_long_inst.next_phase_correction);
             $fflush(next_phase_correction_fd);
         end
         if (dot11_inst.sync_long_inst.fft_in_stb && dot11_inst.sync_long_inst.enable && ~dot11_inst.sync_long_inst.reset) begin
-            $fwrite(fft_in_fd, "%d %d\n", dot11_inst.sync_long_inst.fft_in_re, dot11_inst.sync_long_inst.fft_in_im);
+            $fwrite(fft_in_fd, "%d %d %d\n", iq_count, dot11_inst.sync_long_inst.fft_in_re, dot11_inst.sync_long_inst.fft_in_im);
             $fflush(fft_in_fd);
         end
-        if (dot11_inst.sync_long_inst.fft_valid && dot11_inst.sync_long_inst.enable && ~dot11_inst.sync_long_inst.reset) begin
-            $fwrite(fft_out_fd, "%d %d\n", $signed(dot11_inst.sync_long_inst.fft_out_re[22:7]), $signed(dot11_inst.sync_long_inst.fft_out_im[22:7]));
-            $fflush(fft_out_fd);
+        if (dot11_inst.sync_long_inst.sample_out_strobe) begin
+            $fwrite(sync_long_out_fd, "%d %d %d\n",iq_count, $signed(dot11_inst.sync_long_inst.sample_out[31:16]), $signed(dot11_inst.sync_long_inst.sample_out[15:0]));
+            $fflush(sync_long_out_fd);
         end
         // equalizer 
         if ((dot11_inst.equalizer_inst.num_ofdm_sym == 1 || (dot11_inst.equalizer_inst.pkt_ht==1 && dot11_inst.equalizer_inst.num_ofdm_sym==5)) && dot11_inst.equalizer_inst.state == dot11_inst.equalizer_inst.S_CALC_FREQ_OFFSET && dot11_inst.equalizer_inst.sample_in_strobe_dly == 1 && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
-            $fwrite(new_lts_fd, "%d %d\n", dot11_inst.equalizer_inst.lts_i_out, dot11_inst.equalizer_inst.lts_q_out);
+            $fwrite(new_lts_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.lts_i_out, dot11_inst.equalizer_inst.lts_q_out);
             $fflush(new_lts_fd);
         end
         if (dot11_inst.equalizer_inst.pilot_in_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
-            $fwrite(phase_offset_pilot_input_fd, "%d %d\n", dot11_inst.equalizer_inst.input_i, dot11_inst.equalizer_inst.input_q);
+            $fwrite(phase_offset_pilot_input_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.input_i, dot11_inst.equalizer_inst.input_q);
             $fflush(phase_offset_pilot_input_fd);
-            $fwrite(phase_offset_lts_input_fd, "%d %d\n", dot11_inst.equalizer_inst.lts_i_out, dot11_inst.equalizer_inst.lts_q_out);
+            $fwrite(phase_offset_lts_input_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.lts_i_out, dot11_inst.equalizer_inst.lts_q_out);
             $fflush(phase_offset_lts_input_fd);
         end
         if (dot11_inst.equalizer_inst.pilot_out_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
-            $fwrite(phase_offset_pilot_fd, "%d %d\n", dot11_inst.equalizer_inst.pilot_i, dot11_inst.equalizer_inst.pilot_q);
+            $fwrite(phase_offset_pilot_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.pilot_i, dot11_inst.equalizer_inst.pilot_q);
             $fflush(phase_offset_pilot_fd);
         end
         if (dot11_inst.equalizer_inst.phase_in_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
-            $fwrite(phase_offset_pilot_sum_fd, "%d %d\n", dot11_inst.equalizer_inst.pilot_sum_i, dot11_inst.equalizer_inst.pilot_sum_q);
+            $fwrite(phase_offset_pilot_sum_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.pilot_sum_i, dot11_inst.equalizer_inst.pilot_sum_q);
             $fflush(phase_offset_pilot_sum_fd);
         end
         if (dot11_inst.equalizer_inst.phase_out_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
-            $fwrite(phase_offset_phase_out_fd, "%d\n", $signed(dot11_inst.equalizer_inst.phase_out));
+            $fwrite(phase_offset_phase_out_fd, "%d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.phase_out));
             $fflush(phase_offset_phase_out_fd);
         end
         if (dot11_inst.equalizer_inst.rot_in_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
-            $fwrite(rot_in_fd, "%d %d %d\n", $signed(dot11_inst.equalizer_inst.buf_i_out), $signed(dot11_inst.equalizer_inst.buf_q_out), $signed(dot11_inst.equalizer_inst.sym_phase));
+            $fwrite(rot_in_fd, "%d %d %d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.buf_i_out), $signed(dot11_inst.equalizer_inst.buf_q_out), $signed(dot11_inst.equalizer_inst.sym_phase));
             $fflush(rot_in_fd);
         end
         if (dot11_inst.equalizer_inst.rot_out_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
-            $fwrite(rot_out_fd, "%d %d\n", dot11_inst.equalizer_inst.rot_i, dot11_inst.equalizer_inst.rot_q);
+            $fwrite(rot_out_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.rot_i, dot11_inst.equalizer_inst.rot_q);
             $fflush(rot_out_fd);
         end
         if (dot11_inst.equalizer_inst.prod_out_strobe && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
-            $fwrite(equalizer_prod_fd, "%d %d\n", $signed(dot11_inst.equalizer_inst.prod_i), $signed(dot11_inst.equalizer_inst.prod_q));
+            $fwrite(equalizer_prod_fd, "%d %d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.prod_i), $signed(dot11_inst.equalizer_inst.prod_q));
             $fflush(equalizer_prod_fd);
-            $fwrite(equalizer_prod_scaled_fd, "%d %d\n", $signed(dot11_inst.equalizer_inst.prod_i_scaled), $signed(dot11_inst.equalizer_inst.prod_q_scaled));
+            $fwrite(equalizer_prod_scaled_fd, "%d %d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.prod_i_scaled), $signed(dot11_inst.equalizer_inst.prod_q_scaled));
             $fflush(equalizer_prod_scaled_fd);
-            $fwrite(equalizer_mag_sq_fd, "%d\n", dot11_inst.equalizer_inst.mag_sq);
+            $fwrite(equalizer_mag_sq_fd, "%d %d\n", iq_count, dot11_inst.equalizer_inst.mag_sq);
             $fflush(equalizer_mag_sq_fd);
         end
         if (dot11_inst.equalizer_inst.sample_out_strobe && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
-            $fwrite(equalizer_out_fd, "%d %d\n", $signed(dot11_inst.equalizer_inst.sample_out[31:16]), $signed(dot11_inst.equalizer_inst.sample_out[15:0]));
+            $fwrite(equalizer_out_fd, "%d %d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.sample_out[31:16]), $signed(dot11_inst.equalizer_inst.sample_out[15:0]));
             $fflush(equalizer_out_fd);
         end
 

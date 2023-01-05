@@ -334,7 +334,7 @@ always @(posedge clock) begin
             $fflush(deinterleave_erase_out_fd);
         end
 
-        if ((dot11_inst.state == S_MPDU_DELIM || dot11_inst.state == S_DECODE_DATA || dot11_inst.state == S_MPDU_PAD) && dot11_inst.conv_decoder_out_stb) begin
+        if ((dot11_inst.state == S_MPDU_DELIM || dot11_inst.state == S_DECODE_DATA || dot11_inst.state == S_MPDU_PAD) && dot11_inst.conv_decoder_out_stb && dot11_inst.ofdm_decoder_inst.reset==0) begin
             $fwrite(conv_out_fd, "%d %b\n", iq_count, dot11_inst.conv_decoder_out);
             $fflush(conv_out_fd);
         end

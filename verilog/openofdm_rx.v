@@ -140,6 +140,7 @@
 
 		.power_thres(slv_reg2[10:0]),
 		.min_plateau(slv_reg3),
+		.threshold_scale(slv_reg1[8]),
 
 		.rssi_half_db(rssi_half_db),
 

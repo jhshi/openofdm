@@ -6,6 +6,7 @@ module sync_short (
     input enable,
 
     input [31:0] min_plateau,
+    input threshold_scale,
 
     input [31:0] sample_in,
     input sample_in_strobe,
@@ -216,7 +217,7 @@ always @(posedge clock) begin
         phase_out_neg <= ~phase_out + 1;
         phase_offset_neg <= {{4{phase_out[15]}}, phase_out[15:4]};
 
-        prod_thres <= {1'b0, mag_sq_avg[31:1]} + {2'b0, mag_sq_avg[31:2]};
+        prod_thres <= ( threshold_scale? ({2'b0, mag_sq_avg[31:2]} + {3'b0, mag_sq_avg[31:3]}):({1'b0, mag_sq_avg[31:1]} + {2'b0, mag_sq_avg[31:2]}) );
         
         if (delay_prod_avg_mag_stb) begin
             if (delay_prod_avg_mag > prod_thres) begin

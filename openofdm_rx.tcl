@@ -60,6 +60,8 @@ if {$NUM_CLK_PER_US == 100} {
   throw {NUM_CLK_PER_US MUST BE 100/200/240/400!}
 }
 
+puts $fd "`define BETTER_SENSITIVITY"
+
 if {$ARGUMENT3 eq ""} {
   puts $fd "`define SAMPLE_FILE \"../../../../../testing_inputs/simulated/ht_mcs7_gi1_aggr0_len14_pre100_post200_openwifi.txt\""
 } else {

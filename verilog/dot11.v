@@ -14,6 +14,7 @@ module dot11 (
     // add ports for register based inputs
     input [10:0] power_thres,
     input [31:0] min_plateau,
+    input threshold_scale,
 
     // INPUT: RSSI
     input [10:0] rssi_half_db,
@@ -330,6 +331,8 @@ sync_short sync_short_inst (
     .enable(enable & sync_short_enable),
 
     .min_plateau(min_plateau),
+    .threshold_scale(threshold_scale),
+    
     .sample_in(sample_in),
     .sample_in_strobe(sample_in_strobe),
 

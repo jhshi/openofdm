@@ -5,6 +5,12 @@
 module dot11_tb;
 `include "common_params.v"
 
+`ifdef BETTER_SENSITIVITY
+`define THRESHOLD_SCALE 1
+`else
+`define THRESHOLD_SCALE 0
+`endif
+
 reg clock;
 reg reset;
 reg enable;
@@ -478,6 +484,7 @@ dot11 dot11_inst (
 
     .power_thres(11'd0),
     .min_plateau(32'd100),
+    .threshold_scale(`THRESHOLD_SCALE),
 
     .rssi_half_db(rssi_half_db),
     .sample_in(sample_in),

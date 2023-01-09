@@ -82,8 +82,8 @@
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg2; 
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg3; // 
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg4; // 
-	/*
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg5; // 
+		/*
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg6; // 
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg7; // 
     wire [(C_S00_AXI_DATA_WIDTH-1):0] slv_reg8; 
@@ -204,6 +204,7 @@
 		.sync_long_out_strobe(),
 		.phase_offset_taken(phase_offset_taken),
 		.sync_long_state(),
+		.fft_win_shift(slv_reg5[3:0]),
 
 		// equalizer
 		.equalizer_out(equalizer),
@@ -285,8 +286,8 @@
 		.SLV_REG1(slv_reg1),
 		.SLV_REG2(slv_reg2),
 		.SLV_REG3(slv_reg3),
-		.SLV_REG4(slv_reg4), /*,
-        .SLV_REG5(slv_reg5),
+		.SLV_REG4(slv_reg4), 
+		.SLV_REG5(slv_reg5), /*,
         .SLV_REG6(slv_reg6),
         .SLV_REG7(slv_reg7),
 		.SLV_REG8(slv_reg8),

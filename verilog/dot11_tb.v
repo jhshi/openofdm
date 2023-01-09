@@ -524,6 +524,7 @@ dot11 dot11_inst (
     .soft_decoding(1'b1),
     .force_ht_smoothing(1'b0),
     .disable_all_smoothing(1'b0),
+    .fft_win_shift(4'b1),
 
     .demod_is_ongoing(demod_is_ongoing),
     .pkt_header_valid(pkt_header_valid),

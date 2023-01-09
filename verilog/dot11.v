@@ -25,6 +25,7 @@ module dot11 (
     input soft_decoding,
     input wire force_ht_smoothing,
     input wire disable_all_smoothing,
+    input [3:0] fft_win_shift, 
 
     // OUTPUT: bytes and FCS status
     output reg demod_is_ongoing,
@@ -363,6 +364,7 @@ sync_long sync_long_inst (
     .sample_in_strobe(sample_in_strobe),
     .phase_offset(phase_offset),
     .short_gi(short_gi),
+    .fft_win_shift(fft_win_shift),
 
     .rot_addr(sync_long_rot_addr),
     .rot_data(sync_long_rot_data),

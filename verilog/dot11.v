@@ -211,7 +211,8 @@ phase phase_inst (
 
 reg sync_short_reset;
 reg sync_long_reset;
-wire sync_short_enable = state == S_SYNC_SHORT;
+// wire sync_short_enable = state == S_SYNC_SHORT;
+wire sync_short_enable = 1;
 reg sync_long_enable;
 wire [15:0] num_ofdm_symbol;
 
@@ -343,6 +344,7 @@ sync_short sync_short_inst (
     .phase_out(sync_short_phase_out),
     .phase_out_stb(sync_short_phase_out_stb),
 
+    .demod_is_ongoing(demod_is_ongoing),
     .short_preamble_detected(short_preamble_detected),
     .phase_offset(phase_offset)
 );
@@ -533,6 +535,8 @@ always @(posedge clock) begin
 
         case(state)
             S_WAIT_POWER_TRIGGER: begin
+                sync_short_reset <= 0;
+
                 pkt_begin <= 0;
                 pkt_ht <= 0;
                 crc_reset <= 0;
@@ -551,19 +555,17 @@ always @(posedge clock) begin
                     `ifdef DEBUG_PRINT
                         $display("Power triggered.");
                     `endif
-                    sync_short_reset <= 1;
+                    // sync_short_reset <= 1;
                     state <= S_SYNC_SHORT;
                 end
             end
 
             S_SYNC_SHORT: begin
-                if (sync_short_reset) begin
-                    sync_short_reset <= 0;
-                end
 
                 if (~power_trigger) begin
                     // power level drops before finding STS
                     state <= S_WAIT_POWER_TRIGGER;
+                    sync_short_reset <= 1;
                 end
 
                 if (short_preamble_detected) begin
@@ -588,10 +590,12 @@ always @(posedge clock) begin
                 end
                 if (sample_count > 320) begin
                     state <= S_WAIT_POWER_TRIGGER;
+                    sync_short_reset <= 1;
                 end
 
                 if (~power_trigger) begin
                     state <= S_WAIT_POWER_TRIGGER;
+                    sync_short_reset <= 1;
                 end
 
                 if (long_preamble_detected) begin
@@ -609,10 +613,12 @@ always @(posedge clock) begin
                     byte_count <= 0;
                     byte_count_total <= 0;
                     state <= S_DECODE_SIGNAL;
+                    sync_short_reset <= 1;
                 end
             end
 
             S_DECODE_SIGNAL: begin
+                sync_short_reset <= 0;
                 ofdm_reset <= 0;
 
                 if (equalizer_reset) begin
@@ -677,7 +683,6 @@ always @(posedge clock) begin
                     end else begin
                         //num_bits_to_decode <= (legacy_len+3)<<4;
                         do_descramble <= 1;
-                        ofdm_reset <= 1;
                         pkt_header_valid <= 1;
                         pkt_header_valid_strobe <= 1;
                         pkt_begin <= 1;

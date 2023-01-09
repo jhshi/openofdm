@@ -11,6 +11,7 @@ module sync_short (
     input [31:0] sample_in,
     input sample_in_strobe,
 
+    input demod_is_ongoing,
     output reg short_preamble_detected,
 
     input [15:0] phase_out,
@@ -48,15 +49,8 @@ reg sample_delayed_conj_stb;
 wire [63:0] prod;
 wire prod_stb;
 
-reg [15:0] delay_i;
-reg [15:0] delay_q_neg;
-
 wire [63:0] prod_avg;
 wire prod_avg_stb;
-
-wire [31:0] freq_offset_i;
-wire [31:0] freq_offset_q;
-wire freq_offset_stb;
 
 reg [15:0] phase_out_neg;
 reg [15:0] phase_offset_neg;
@@ -190,28 +184,6 @@ mv_avg_dual_ch #(.DATA_WIDTH0(32), .DATA_WIDTH1(32), .LOG2_AVG_LEN(WINDOW_SHIFT)
     .data_out_valid(prod_avg_stb)
 );
 
-// // for fixing freq offset
-// moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(6))
-// freq_offset_i_inst (
-//     .clock(clock),
-//     .enable(enable),
-//     .reset(reset),
-//     .data_in(prod[63:32]),
-//     .input_strobe(prod_stb),
-//     .data_out(phase_in_i),
-//     .output_strobe(phase_in_stb)
-// );
-
-// moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(6)) 
-// freq_offset_q_inst (
-//     .clock(clock),
-//     .enable(enable),
-//     .reset(reset),
-//     .data_in(prod[31:0]),
-//     .input_strobe(prod_stb),
-//     .data_out(phase_in_q)
-// );
-
 mv_avg_dual_ch #(.DATA_WIDTH0(32), .DATA_WIDTH1(32), .LOG2_AVG_LEN(6)) freq_offset_inst (
     .clk(clock),
     .rstn(~(reset|reset_delay1|reset_delay2|reset_delay3|reset_delay4)),
@@ -260,7 +232,7 @@ always @(posedge clock) begin
 
         plateau_count <= 0;
         short_preamble_detected <= 0;
-        phase_offset <= 0;
+        phase_offset <= phase_offset; // do not clear it. sync short will reset soon after stf detected, but sync long still needs it.
     end else if (enable) begin
         reset_delay4 <= reset_delay3;
         reset_delay3 <= reset_delay2;
@@ -293,10 +265,12 @@ always @(posedge clock) begin
                     pos_count <= 0;
                     neg_count <= 0;
                     short_preamble_detected <= has_pos & has_neg;
-                    if(phase_out_neg[3] == 0)  // E.g. 131/16 = 8.1875 -> 8, -138/16 = -8.625 -> -9
-                        phase_offset <= {{4{phase_out_neg[15]}}, phase_out_neg[15:4]};
-                    else  // E.g. -131/16 = -8.1875 -> -8, 138/16 = 8.625 -> 9
-                        phase_offset <= ~phase_offset_neg + 1;
+                    if (has_pos && has_neg && demod_is_ongoing==0) begin // only update and lock phase_offset to new value when short_preamble_detected and not start demod yet
+                        if(phase_out_neg[3] == 0)  // E.g. 131/16 = 8.1875 -> 8, -138/16 = -8.625 -> -9
+                            phase_offset <= {{4{phase_out_neg[15]}}, phase_out_neg[15:4]};
+                        else  // E.g. -131/16 = -8.1875 -> -8, 138/16 = 8.625 -> 9
+                            phase_offset <= ~phase_offset_neg + 1;
+                    end
                 end else begin
                     plateau_count <= plateau_count + 1;
                     short_preamble_detected <= 0;

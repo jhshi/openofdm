@@ -225,7 +225,7 @@ always @(posedge clock) begin
         `elsif CLK_SPEED_400M
         if (clk_count == 19) begin // for 200M; 400/20 = 20
         `endif
-            sample_in_strobe <= 1;
+//            sample_in_strobe <= 1;
             //$fscanf(iq_sample_file, "%d %d %d", file_i, file_q, file_rssi_half_db);
             iq_count_tmp = $fscanf(iq_sample_file, "%d %d", file_i, file_q);
             if (iq_count_tmp != 2)
@@ -238,10 +238,17 @@ always @(posedge clock) begin
             iq_count <= iq_count + 1;
             clk_count <= 0;
         end else begin
-            sample_in_strobe <= 0;
+//            sample_in_strobe <= 0;
             clk_count <= clk_count + 1;
         end
-
+        
+        // for finer sample_in_strobe phase control
+        if (clk_count == 3) begin
+            sample_in_strobe <= 1;
+        end else begin
+            sample_in_strobe <= 0;
+        end
+        
         if (dot11_inst.legacy_sig_stb) begin
         end
 

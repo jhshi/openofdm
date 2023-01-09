@@ -128,7 +128,7 @@
 		.q_data(sample_in[15:0]),
 		.iq_valid(sample_in_strobe),
 
-		.power_trigger(power_trigger),
+		.power_trigger(power_trigger|(~slv_reg1[12])),//by default the watchdog will run regardless the power_trigger
 
 		.signal_len(pkt_len),
     	.sig_valid(sig_valid),
@@ -149,7 +149,7 @@
 
 		.power_thres(slv_reg2[10:0]),
 		.min_plateau(slv_reg3),
-		.threshold_scale(slv_reg1[8]),
+		.threshold_scale(~slv_reg1[8]),
 
 		.rssi_half_db(rssi_half_db),
 

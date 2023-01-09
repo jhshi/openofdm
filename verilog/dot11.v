@@ -1,8 +1,11 @@
 `include "common_defs.v"
 `include "openofdm_rx_pre_def.v"
 
-// `define DEBUG_PREFIX (*mark_debug="true",DONT_TOUCH="TRUE"*)
+`ifdef OPENOFDM_RX_ENABLE_DBG
+`define DEBUG_PREFIX (*mark_debug="true",DONT_TOUCH="TRUE"*)
+`else
 `define DEBUG_PREFIX
+`endif
 
 module dot11 (
     input clock,

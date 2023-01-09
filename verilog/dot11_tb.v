@@ -88,6 +88,10 @@ integer phase_offset_pilot_sum_fd;
 integer phase_offset_phase_out_fd;
 integer cpe_fd;
 integer lvpe_fd;
+integer sxy_fd; 
+integer prev_peg_fd; 
+integer peg_sym_scale_fd;
+integer peg_pilot_scale_fd;
 integer rot_in_fd;
 integer rot_out_fd;
 integer equalizer_prod_fd;
@@ -163,6 +167,10 @@ always @(posedge clock) begin
         phase_offset_phase_out_fd = $fopen("./phase_offset_phase_out.txt", "w");
         cpe_fd = $fopen("./cpe.txt", "w");
         lvpe_fd = $fopen("./lvpe.txt", "w");
+        sxy_fd = $fopen("./sxy.txt", "w");
+        prev_peg_fd = $fopen("./prev_peg.txt", "w");
+        peg_sym_scale_fd = $fopen("./peg_sym_scale.txt", "w");
+        peg_pilot_scale_fd = $fopen("./peg_pilot_scale.txt", "w");
         rot_in_fd = $fopen("./rot_in.txt", "w");
         rot_out_fd = $fopen("./rot_out.txt", "w");
         equalizer_prod_fd = $fopen("./equalizer_prod.txt", "w");
@@ -285,6 +293,10 @@ always @(posedge clock) begin
                 $fclose(phase_offset_phase_out_fd);
                 $fclose(cpe_fd);
                 $fclose(lvpe_fd);
+                $fclose(sxy_fd);
+                $fclose(prev_peg_fd);
+                $fclose(peg_sym_scale_fd);
+                $fclose(peg_pilot_scale_fd);
                 $fclose(rot_in_fd);
                 $fclose(rot_out_fd);
                 $fclose(equalizer_prod_fd);
@@ -430,25 +442,25 @@ always @(posedge clock) begin
             $fflush(sync_long_out_fd);
         end
         // equalizer 
-        if ((dot11_inst.equalizer_inst.num_ofdm_sym == 1 || (dot11_inst.equalizer_inst.pkt_ht==1 && dot11_inst.equalizer_inst.num_ofdm_sym==5)) && dot11_inst.equalizer_inst.state == dot11_inst.equalizer_inst.S_CALC_FREQ_OFFSET && dot11_inst.equalizer_inst.sample_in_strobe_dly == 1 && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
+        if ((dot11_inst.equalizer_inst.num_ofdm_sym == 1 || (dot11_inst.equalizer_inst.pkt_ht==1 && dot11_inst.equalizer_inst.num_ofdm_sym==5)) && dot11_inst.equalizer_inst.state == dot11_inst.equalizer_inst.S_CPE_ESTIMATE && dot11_inst.equalizer_inst.sample_in_strobe_dly == 1 && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset) begin
             $fwrite(new_lts_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.lts_i_out, dot11_inst.equalizer_inst.lts_q_out);
             $fflush(new_lts_fd);
         end
-        if (dot11_inst.equalizer_inst.pilot_in_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
+        if (dot11_inst.equalizer_inst.pilot_in_stb && dot11_inst.equalizer_inst.enable && dot11_inst.equalizer_inst.state==dot11_inst.equalizer_inst.S_CPE_ESTIMATE && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
             $fwrite(phase_offset_pilot_input_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.input_i, dot11_inst.equalizer_inst.input_q);
             $fflush(phase_offset_pilot_input_fd);
             $fwrite(phase_offset_lts_input_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.lts_i_out, dot11_inst.equalizer_inst.lts_q_out);
             $fflush(phase_offset_lts_input_fd);
         end
-        if (dot11_inst.equalizer_inst.pilot_out_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
+        if (dot11_inst.equalizer_inst.pilot_out_stb && dot11_inst.equalizer_inst.enable && dot11_inst.equalizer_inst.state==dot11_inst.equalizer_inst.S_CPE_ESTIMATE && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
             $fwrite(phase_offset_pilot_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.pilot_i, dot11_inst.equalizer_inst.pilot_q);
             $fflush(phase_offset_pilot_fd);
         end
-        if (dot11_inst.equalizer_inst.phase_in_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
+        if (dot11_inst.equalizer_inst.phase_in_stb && dot11_inst.equalizer_inst.enable && dot11_inst.equalizer_inst.state==dot11_inst.equalizer_inst.S_PILOT_PE_CORRECTION && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
             $fwrite(phase_offset_pilot_sum_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.pilot_sum_i, dot11_inst.equalizer_inst.pilot_sum_q);
             $fflush(phase_offset_pilot_sum_fd);
         end
-        if (dot11_inst.equalizer_inst.phase_out_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
+        if (dot11_inst.equalizer_inst.phase_out_stb && dot11_inst.equalizer_inst.enable && dot11_inst.equalizer_inst.state==dot11_inst.equalizer_inst.S_PILOT_PE_CORRECTION && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
             $fwrite(phase_offset_phase_out_fd, "%d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.phase_out));
             $fflush(phase_offset_phase_out_fd);
         end
@@ -460,13 +472,29 @@ always @(posedge clock) begin
             $fwrite(lvpe_fd, "%d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.lvpe));
             $fflush(lvpe_fd);
         end
-        if (dot11_inst.equalizer_inst.rot_in_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
+        if (dot11_inst.equalizer_inst.lvpe_out_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
+            $fwrite(sxy_fd, "%d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.Sxy));
+            $fflush(sxy_fd);
+        end
+        if (dot11_inst.equalizer_inst.num_output == dot11_inst.equalizer_inst.num_data_carrier && dot11_inst.equalizer_inst.enable && dot11_inst.equalizer_inst.state==dot11_inst.equalizer_inst.S_ALL_SC_PE_CORRECTION && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
+            $fwrite(prev_peg_fd, "%d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.prev_peg_reg));
+            $fflush(prev_peg_fd);
+        end
+        if (dot11_inst.equalizer_inst.lvpe_out_stb && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
+            $fwrite(peg_sym_scale_fd, "%d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.peg_sym_scale));
+            $fflush(peg_sym_scale_fd);
+        end
+        if (dot11_inst.equalizer_inst.pilot_count1 < 4 && dot11_inst.equalizer_inst.enable && dot11_inst.equalizer_inst.enable && dot11_inst.equalizer_inst.state==dot11_inst.equalizer_inst.S_PILOT_PE_CORRECTION && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
+            $fwrite(peg_pilot_scale_fd, "%d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.peg_pilot_scale));
+            $fflush(peg_pilot_scale_fd);
+        end
+        if (dot11_inst.equalizer_inst.rot_in_stb && dot11_inst.equalizer_inst.enable && dot11_inst.equalizer_inst.state==dot11_inst.equalizer_inst.S_ALL_SC_PE_CORRECTION && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
             $fwrite(rot_in_fd, "%d %d %d %d\n", iq_count, $signed(dot11_inst.equalizer_inst.buf_i_out), $signed(dot11_inst.equalizer_inst.buf_q_out), $signed(dot11_inst.equalizer_inst.sym_phase));
             $fflush(rot_in_fd);
         end
-        if (dot11_inst.equalizer_inst.rot_out_stb && dot11_inst.equalizer_inst.state==dot11_inst.equalizer_inst.S_ADJUST_FREQ_and_SAMPL_OFFSET && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
+        if (dot11_inst.equalizer_inst.rot_out_stb && dot11_inst.equalizer_inst.state==dot11_inst.equalizer_inst.S_ALL_SC_PE_CORRECTION && dot11_inst.equalizer_inst.enable && ~dot11_inst.equalizer_inst.reset && dot11_inst.demod_is_ongoing) begin
         // when enable is 0, it locked equalizer all internal variables till the next reset/enable, some large delayed signal, such as rot out, logged with some garbage
-        // limite the log to dot11_inst.equalizer_inst.S_ADJUST_FREQ_and_SAMPL_OFFSET state
+        // limite the log to dot11_inst.equalizer_inst.S_ALL_SC_PE_CORRECTION state
             $fwrite(rot_out_fd, "%d %d %d\n", iq_count, dot11_inst.equalizer_inst.rot_i, dot11_inst.equalizer_inst.rot_q);
             $fflush(rot_out_fd);
         end

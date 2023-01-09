@@ -82,11 +82,31 @@ reg [63:0] ht_lts_ref;
 reg [63:0] subcarrier_mask;
 reg [63:0] data_subcarrier_mask;
 reg [63:0] pilot_mask;
+reg [5:0] pilot_loc[3:0];
+reg signed [5:0] pilot_idx[3:0];
+localparam pilot_loc1 = 7;
+localparam pilot_loc2 = 21;
+localparam pilot_loc3 = 43; 
+localparam pilot_loc4 = 57; 
+localparam signed pilot_idx1 = 8; 
+localparam signed pilot_idx2 = 22; 
+localparam signed pilot_idx3 = -20;
+localparam signed pilot_idx4 = -6; 
+initial begin 
+    pilot_loc[0] = pilot_loc1;
+    pilot_idx[0] = pilot_idx1;
+    pilot_loc[1] = pilot_loc2;
+    pilot_idx[1] = pilot_idx2;
+    pilot_loc[2] = pilot_loc3;
+    pilot_idx[2] = pilot_idx3;
+    pilot_loc[3] = pilot_loc4;
+    pilot_idx[3] = pilot_idx4;
+end
 
 reg [126:0] polarity;
 reg [3:0] ht_polarity;
 reg [3:0] current_polarity;
-reg [3:0] pilot_count1, pilot_count2;
+reg [3:0] pilot_count1, pilot_count2, pilot_count3;
 
 reg signed [15:0] input_i;
 reg signed [15:0] input_q;
@@ -125,8 +145,6 @@ reg signed [31:0] pilot_sum_q;
 assign phase_in_i = pilot_i_reg;
 assign phase_in_q = pilot_q_reg;
 
-reg sum_phase;
-
 //reg signed [15:0] pilot_phase_err;
 reg signed [16:0] pilot_phase_err; // 15 --> 16 = 15 + 1, extended from cpe
 reg signed [15:0] cpe; // common phase error due to RFO
@@ -135,14 +153,15 @@ reg signed [23:0] Sxy; // 15-->23. to avoid overflow: pilot_phase_err 16 + 5 + 2
 localparam Sx2 = 980;
 
 // linear varying phase error (LVPE) parameters
-reg signed [7:0] sym_idx;
+reg signed [7:0] sym_idx, sym_idx2; 
 reg lvpe_in_stb;
 wire lvpe_out_stb;
-wire signed [31:0] lvpe_dividend, lvpe;
+wire signed [31:0] lvpe_dividend, lvpe, peg_sym_scale;
 wire signed [23:0] lvpe_divisor;
 assign lvpe_dividend = (sym_idx <= 33 ? sym_idx*Sxy : (sym_idx-64)*Sxy);
 assign lvpe_divisor = Sx2;
-
+reg signed [31:0] prev_peg, prev_peg_reg, peg_pilot_scale; 
+assign peg_sym_scale = (sym_idx2 <= 33 ? sym_idx2*prev_peg : (sym_idx2-64)*prev_peg);
 
 //reg signed [15:0] phase_err;
 reg signed  [17:0] phase_err; // 15-->16: phase_err <= cpe + lvpe[17:0]; 16 + 1 = 17 for sym_phase
@@ -181,11 +200,11 @@ reg signed [18:0] lts_sum_q;
 reg [2:0] lts_mv_avg_len;
 reg lts_div_in_stb;
 
-wire [31:0] dividend_i = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? (lts_sum_i[18] == 0 ? {13'h0,lts_sum_i} : {13'h1FFF,lts_sum_i}) : (state == S_ADJUST_FREQ_and_SAMPL_OFFSET ? prod_i_scaled : 0);
-wire [31:0] dividend_q = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? (lts_sum_q[18] == 0 ? {13'h0,lts_sum_q} : {13'h1FFF,lts_sum_q}) : (state == S_ADJUST_FREQ_and_SAMPL_OFFSET ? prod_q_scaled : 0);
-wire [23:0] divisor_i = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_and_SAMPL_OFFSET ? mag_sq[23:0] : 1);
-wire [23:0] divisor_q = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ADJUST_FREQ_and_SAMPL_OFFSET ? mag_sq[23:0] : 1);
-wire div_in_stb = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? lts_div_in_stb : (state == S_ADJUST_FREQ_and_SAMPL_OFFSET ? prod_out_strobe : 0);
+wire [31:0] dividend_i = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? (lts_sum_i[18] == 0 ? {13'h0,lts_sum_i} : {13'h1FFF,lts_sum_i}) : (state == S_ALL_SC_PE_CORRECTION ? prod_i_scaled : 0);
+wire [31:0] dividend_q = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? (lts_sum_q[18] == 0 ? {13'h0,lts_sum_q} : {13'h1FFF,lts_sum_q}) : (state == S_ALL_SC_PE_CORRECTION ? prod_q_scaled : 0);
+wire [23:0] divisor_i = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ALL_SC_PE_CORRECTION ? mag_sq[23:0] : 1);
+wire [23:0] divisor_q = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? {21'b0,lts_mv_avg_len} : (state == S_ALL_SC_PE_CORRECTION ? mag_sq[23:0] : 1);
+wire div_in_stb = (state == S_SMOOTH_CH_DC || state == S_SMOOTH_CH_LTS) ? lts_div_in_stb : (state == S_ALL_SC_PE_CORRECTION ? prod_out_strobe : 0);
 
 
 reg [15:0] num_output;
@@ -206,7 +225,7 @@ wire prod_out_strobe;
 // for side channel
 reg sample_in_strobe_dly;
 assign csi = {lts_i_out, lts_q_out};
-assign csi_valid = ( (num_ofdm_sym == 1 || (pkt_ht==1 && num_ofdm_sym==5)) && state == S_CALC_FREQ_OFFSET && sample_in_strobe_dly == 1 && enable && (~reset) );
+assign csi_valid = ( (num_ofdm_sym == 1 || (pkt_ht==1 && num_ofdm_sym==5)) && state == S_CPE_ESTIMATE && sample_in_strobe_dly == 1 && enable && (~reset) );
 
 always @(posedge clock) begin
     if (reset) begin
@@ -376,10 +395,11 @@ localparam S_SECOND_LTS = 1;
 localparam S_SMOOTH_CH_DC = 2;
 localparam S_SMOOTH_CH_LTS = 3;
 localparam S_GET_POLARITY = 4;
-localparam S_CALC_FREQ_OFFSET = 5;
-localparam S_CALC_SAMPL_OFFSET = 6;
-localparam S_ADJUST_FREQ_and_SAMPL_OFFSET = 7;
-localparam S_HT_LTS = 8;
+localparam S_CPE_ESTIMATE = 5;
+localparam S_PILOT_PE_CORRECTION = 6; 
+localparam S_LVPE_ESTIMATE = 7;
+localparam S_ALL_SC_PE_CORRECTION = 8;
+localparam S_HT_LTS = 9;
 
 always @(posedge clock) begin
     if (reset|reset_internal) begin
@@ -408,10 +428,12 @@ always @(posedge clock) begin
         current_polarity <= 0;
         pilot_count1 <= 0;
         pilot_count2 <= 0;
+        pilot_count3 <= 0; 
 
         in_waddr <= 0;
         in_raddr <= 0;
         sym_idx <= 0;
+        sym_idx2 <= 0; 
 
         lts_reg1_i <= 0; lts_reg2_i <= 0; lts_reg3_i <= 0; lts_reg4_i <= 0; lts_reg5_i <= 0;
         lts_reg1_q <= 0; lts_reg2_q <= 0; lts_reg3_q <= 0; lts_reg4_q <= 0; lts_reg5_q <= 0;
@@ -432,7 +454,9 @@ always @(posedge clock) begin
         pilot_i_reg <= 0;
         pilot_q_reg <= 0;
         pilot_iq_phase[0] <= 0; pilot_iq_phase[1] <= 0; pilot_iq_phase[2] <= 0; pilot_iq_phase[3] <= 0;
-        sum_phase <= 0;
+        prev_peg <= 0; 
+        prev_peg_reg <= 0; 
+        peg_pilot_scale <= 0; 
 
         prod_in_strobe <= 0;
 
@@ -606,10 +630,10 @@ always @(posedge clock) begin
                 input_q <= 0;
                 lts_raddr <= 0;
                 num_ofdm_sym <= num_ofdm_sym + 1;
-                state <= S_CALC_FREQ_OFFSET;
+                state <= S_CPE_ESTIMATE;
             end
 
-            S_CALC_FREQ_OFFSET: begin
+            S_CPE_ESTIMATE: begin
                 if (~ht & ht_next) begin
                     ht <= 1;
                     num_data_carrier <= 52;
@@ -631,10 +655,8 @@ always @(posedge clock) begin
                     pilot_mask <= {pilot_mask[0], pilot_mask[63:1]};
                     if (pilot_mask[0]) begin
                         pilot_count1 <= pilot_count1 + 1;
-                        current_polarity <= {current_polarity[0],
-                            current_polarity[3:1]};
                         // obtain the conjugate of current pilot sub carrier
-                        if (current_polarity[0] == 0) begin
+                        if (current_polarity[pilot_count1] == 0) begin
                             input_i <= sample_in[31:16];
                             input_q <= ~sample_in[15:0] + 1;
                         end else begin
@@ -652,43 +674,92 @@ always @(posedge clock) begin
                 if (pilot_out_stb) begin
                     pilot_sum_i <= pilot_sum_i + pilot_i;
                     pilot_sum_q <= pilot_sum_q + pilot_q;
-                    pilot_i_reg <= pilot_i;
-                    pilot_q_reg <= pilot_q;
-                    phase_in_stb <= 1;
-                end else if (pilot_count2 == 4 && sum_phase == 0) begin
+                    pilot_count2 <= pilot_count2 + 1; 
+                end else if (pilot_count2 == 4) begin
                     pilot_i_reg <= pilot_sum_i;
                     pilot_q_reg <= pilot_sum_q; 
                     phase_in_stb <= 1;
-                    sum_phase <= 1;
+                    pilot_count2 <= 0; 
                 end else begin
                     phase_in_stb <= 0; 
                 end
 
-                if (phase_out_stb && pilot_count2 < 4) begin
-                    pilot_count2 <= pilot_count2 + 1;
-                    pilot_iq_phase[pilot_count2] <= phase_out;
-                    `ifdef DEBUG_PRINT
-                        $display("[PILOT OFFSET] %d", phase_out);
-                    `endif
-                end else if (phase_out_stb && pilot_count2 == 4) begin
+                if (phase_out_stb) begin
                     cpe <= phase_out; 
-                    pilot_count1 <= 0;
+                    pilot_count1 <= 0; 
                     pilot_count2 <= 0;
+                    pilot_count3 <= 0; 
                     Sxy <= 0;
-                    state <= S_CALC_SAMPL_OFFSET;
-                    sum_phase <= 0; 
+                    in_raddr <= pilot_loc[0][5:0];  // sample in location, compensate for RAM read delay
+                    lts_raddr <= pilot_loc[0][5:0]; // LTS location, compensate for RAM read delay
+                    peg_pilot_scale <= pilot_idx[0]*prev_peg;
+                    state <= S_PILOT_PE_CORRECTION;
                 end
             end
 
-            S_CALC_SAMPL_OFFSET: begin
+            S_PILOT_PE_CORRECTION: begin
+                // rotate pilots with accumulated PEG up to previous symbol
+                if (pilot_count1 < 4) begin
+                    if (pilot_count1 < 3) begin
+                        in_raddr <= pilot_loc[pilot_count1+1][5:0];
+                        peg_pilot_scale <= (pilot_idx[pilot_count1+1])*prev_peg;
+                        rot_in_stb <= 1;
+                    end
+                    phase_err <= {cpe[15], cpe[15], cpe[15:0]} + peg_pilot_scale[17:0];
+                    pilot_count1 <= pilot_count1 + 1; 
+                end else begin
+                    rot_in_stb <= 0;
+                end
+
+                if (rot_out_stb && pilot_count2 < 4) begin
+                    if (pilot_count2 < 3) begin
+                        lts_raddr <= pilot_loc[pilot_count2+1][5:0]; 
+                    end
+                    // obtain the conjugate of current pilot sub carrier
+                    if (current_polarity[pilot_count2] == 0) begin
+                        input_i <= rot_i;
+                        input_q <= -rot_q;
+                    end else begin
+                        input_i <= -rot_i;
+                        input_q <= rot_q;
+                    end
+                    pilot_in_stb <= 1;  // start complex mult. with LTS pilot
+                    pilot_count2 <= pilot_count2 + 1; 
+                end else begin
+                    pilot_in_stb <= 0; 
+                end
+
+                if (pilot_out_stb) begin
+                    pilot_i_reg <= pilot_i;
+                    pilot_q_reg <= pilot_q;
+                    phase_in_stb <= 1;
+                end else begin
+                    phase_in_stb <= 0; 
+                end
+
+                if (phase_out_stb && pilot_count3 < 4) begin
+                    pilot_count3 <= pilot_count3 + 1; 
+                    pilot_iq_phase[pilot_count3] <= phase_out;
+                end
+
+                if (pilot_count3 == 4) begin
+                    phase_in_stb <= 0; 
+                    pilot_count1 <= 0; 
+                    pilot_count2 <= 0; 
+                    pilot_count3 <= 0; 
+                    state <= S_LVPE_ESTIMATE; 
+                end
+            end
+
+            S_LVPE_ESTIMATE: begin
                 if (pilot_count1 < 4) begin
                     // sampling rate offset (SFO) is calculated as pilot phase error
-                    if(pilot_iq_phase[pilot_count1] < cpe - 1608) begin
-                        pilot_phase_err <= pilot_iq_phase[pilot_count1] - cpe + 3217;
-                    end else if(pilot_iq_phase[pilot_count1] > cpe + 1608) begin
-                        pilot_phase_err <= pilot_iq_phase[pilot_count1] - cpe - 3217;
+                    if(pilot_iq_phase[pilot_count1] < -1608) begin
+                        pilot_phase_err <= pilot_iq_phase[pilot_count1] + 3217;
+                    end else if(pilot_iq_phase[pilot_count1] > 1608) begin
+                        pilot_phase_err <= pilot_iq_phase[pilot_count1] - 3217;
                     end else begin
-                        pilot_phase_err <= pilot_iq_phase[pilot_count1] - cpe;
+                        pilot_phase_err <= pilot_iq_phase[pilot_count1];
                     end
 
                     pilot_count1 <= pilot_count1 + 1;
@@ -703,20 +774,21 @@ always @(posedge clock) begin
                 end else if(pilot_count1 == 4) begin
                     Sxy <= Sxy + -7*pilot_phase_err;
 
-                    in_raddr <= 0;
+                    in_raddr <= 0; 
                     sym_idx <= 0;
+                    sym_idx2 <= 1; 
                     lvpe_in_stb <= 0;
                     // compensate for RAM read delay
                     lts_raddr <= 1;
                     rot_in_stb <= 0;
                     num_output <= 0;
-                    state <= S_ADJUST_FREQ_and_SAMPL_OFFSET;
+                    state <= S_ALL_SC_PE_CORRECTION;
                 end
                 // Sx² = ∑(x-x̄)*(x-x̄) = ∑x² = (7² + 21² + (-21)² + (-7)²) = 980
                 // phase error gradient (PEG) = Sxy/Sx²
             end
 
-            S_ADJUST_FREQ_and_SAMPL_OFFSET: begin
+            S_ALL_SC_PE_CORRECTION: begin
                 if (sym_idx < 64) begin
                     sym_idx <= sym_idx + 1;
                     lvpe_in_stb <= 1;
@@ -726,10 +798,14 @@ always @(posedge clock) begin
 
                 // first rotate, then normalize by avg LTS
                 if (lvpe_out_stb) begin
-//                    phase_err <= cpe + lvpe[15:0];
-                    phase_err <= {cpe[15], cpe[15], cpe[15:0]} + lvpe[17:0];
+                    sym_idx2 <= sym_idx2 + 1; 
+                    phase_err <= {cpe[15], cpe[15], cpe[15:0]} + lvpe[17:0] + peg_sym_scale[17:0];
                     rot_in_stb <= 1;
                     in_raddr <= in_raddr + 1;
+                    if (sym_idx2 == 32) begin
+                        // lvpe output is 32*PEG due to sym_idx
+                        prev_peg_reg <= prev_peg_reg + (lvpe >>> 5); 
+                    end
                 end else begin
                     rot_in_stb <= 0;
                 end
@@ -754,6 +830,7 @@ always @(posedge clock) begin
                 end
 
                 if (num_output == num_data_carrier) begin
+                    prev_peg <= prev_peg_reg; 
                     state <= S_GET_POLARITY;
                 end
             end

@@ -141,7 +141,7 @@ assign n_bit_in_last_sym = n_bit_in_last_sym_tmp[9:0];
 ////////////////////////////////////////////////////////////////////////////////
 `DEBUG_PREFIX reg  [3:0] equalizer_state_reg;
 
-assign ofdm_symbol_eq_out_pulse = (equalizer_state==4 && equalizer_state_reg==7);
+assign ofdm_symbol_eq_out_pulse = (equalizer_state==4 && equalizer_state_reg==8);
 
 always @(posedge clock) begin
     if (reset==1) begin

@@ -47,6 +47,11 @@
 		output wire equalizer_valid,
 		output wire ofdm_symbol_eq_out_pulse,
 
+		// phy len info
+		output [14:0] n_ofdm_sym,//max 20166 = (22+65535*8)/26 (max ht len 65535 in sig, min ndbps 26 for mcs0)
+		output [9:0]  n_bit_in_last_sym,//max ht ndbps 260 (ht mcs7)
+		output        phy_len_valid,
+
 		// axi lite based register configuration interface
 		input  wire s00_axi_aclk,
 		input  wire s00_axi_aresetn,
@@ -166,6 +171,10 @@
 		.byte_count(byte_count),
 		.fcs_out_strobe(fcs_out_strobe),
 		.fcs_ok(fcs_ok),
+
+		.n_ofdm_sym(n_ofdm_sym),//max 20166 = (22+65535*8)/26 (max ht len 65535 in sig, min ndbps 26 for mcs0)
+    	.n_bit_in_last_sym(n_bit_in_last_sym),//max ht ndbps 260 (ht mcs7)
+    	.phy_len_valid(phy_len_valid),
 
 		/////////////////////////////////////////////////////////
 		// DEBUG PORTS

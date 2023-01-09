@@ -99,6 +99,10 @@ module dot11 (
     output [1:0] ht_num_ext,
     output reg ht_sig_crc_ok,
 
+    output [14:0] n_ofdm_sym,//max 20166 = (22+65535*8)/26 (max ht len 65535 in sig, min ndbps 26 for mcs0)
+    output [9:0]  n_bit_in_last_sym,//max ht ndbps 260 (ht mcs7)
+    output        phy_len_valid,
+
     // decoding pipeline
     output [5:0] demod_out,
     output [5:0] demod_soft_bits,
@@ -120,6 +124,9 @@ module dot11 (
 );
 
 `include "common_params.v"
+
+wire [19:0] n_bit_in_last_sym_tmp;
+assign n_bit_in_last_sym = n_bit_in_last_sym_tmp[9:0];
 
 ////////////////////////////////////////////////////////////////////////////////
 // extra info output to ease side info and viterbi state monitor
@@ -460,6 +467,20 @@ crc32 fcs_inst (
     .crc_out(pkt_fcs)
 );
 
+phy_len_calculation phy_len_calculation_inst(
+    .clock(clock),
+    .reset(reset | long_preamble_detected),
+    .enable(),
+
+    .state(state),
+    .old_state(old_state),
+    .num_bits_to_decode(num_bits_to_decode),
+    .pkt_rate(pkt_rate),//bit [7] 1 means ht; 0 means non-ht
+    
+    .n_ofdm_sym(n_ofdm_sym),//max 20166 = (22+65535*8)/26
+    .n_bit_in_last_sym(n_bit_in_last_sym_tmp),//max ht ndbps 260
+    .phy_len_valid(phy_len_valid)
+);
 
 always @(posedge clock) begin
     if (reset) begin

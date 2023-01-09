@@ -60,6 +60,8 @@ integer byte_out_fd;
 integer fcs_out_fd;
 integer status_code_fd;
 
+integer phy_len_fd;
+
 // sync_short 
 integer mag_sq_fd;
 integer mag_sq_avg_fd;
@@ -182,6 +184,8 @@ always @(posedge clock) begin
         fcs_out_fd = $fopen("./fcs_out.txt", "w");
         status_code_fd = $fopen("./status_code.txt","w");
 
+        phy_len_fd = $fopen("./phy_len.txt", "w");
+
     end
 end
 
@@ -300,6 +304,8 @@ always @(posedge clock) begin
                 $fclose(byte_out_fd);
                 $fclose(fcs_out_fd);
                 $fclose(status_code_fd);
+
+                $fclose(phy_len_fd);
                 $finish;
             end
         end
@@ -314,6 +320,10 @@ always @(posedge clock) begin
         if(dot11_inst.fcs_out_strobe) begin
             $fwrite(fcs_out_fd, "%d %d\n", iq_count, dot11_inst.fcs_ok);
             $fflush(fcs_out_fd);
+        end
+        if(dot11_inst.fcs_out_strobe && dot11_inst.phy_len_valid) begin
+            $fwrite(phy_len_fd, "%d %d %d\n", iq_count, dot11_inst.n_ofdm_sym, dot11_inst.n_bit_in_last_sym);
+            $fflush(phy_len_fd);
         end
         if(dot11_inst.state == S_HT_SIG_ERROR || dot11_inst.state == S_SIGNAL_ERROR) begin
             $fwrite(status_code_fd, "%d %d %d\n", iq_count, dot11_inst.status_code, dot11_inst.state);
@@ -488,6 +498,7 @@ signal_watchdog signal_watchdog_inst (
     .signal_len(pkt_len),
     .sig_valid(sig_valid),
 
+    .min_signal_len_th(0),
     .max_signal_len_th(16'hFFFF),
     .dc_running_sum_th(65),
 

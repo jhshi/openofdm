@@ -1,6 +1,9 @@
 `include "common_defs.v"
 `include "openofdm_rx_pre_def.v"
 
+// `define DEBUG_PREFIX (*mark_debug="true",DONT_TOUCH="TRUE"*)
+`define DEBUG_PREFIX
+
 module dot11 (
     input clock,
     input enable,
@@ -50,32 +53,32 @@ module dot11 (
     
     // decode status
     // (* mark_debug = "true", DONT_TOUCH = "TRUE" *) 
-    output reg [4:0] state,
-    output reg [4:0] status_code,
-    output state_changed,
-    output reg [31:0] state_history,
+    `DEBUG_PREFIX output reg [4:0] state,
+    `DEBUG_PREFIX output reg [4:0] status_code,
+    `DEBUG_PREFIX output state_changed,
+    `DEBUG_PREFIX output reg [31:0] state_history,
 
     // power trigger
-    output power_trigger,
+    `DEBUG_PREFIX output power_trigger,
 
     // sync short
-    output short_preamble_detected,
-    output [15:0] phase_offset,
+    `DEBUG_PREFIX output short_preamble_detected,
+    `DEBUG_PREFIX output [15:0] phase_offset,
 
     // sync long
-    output [31:0] sync_long_metric,
-    output sync_long_metric_stb,
-    output long_preamble_detected,
-    output [31:0] sync_long_out,
-    output sync_long_out_strobe,
-    output wire signed [31:0] phase_offset_taken,
-    output [2:0] sync_long_state,
+    `DEBUG_PREFIX output [31:0] sync_long_metric,
+    `DEBUG_PREFIX output sync_long_metric_stb,
+    `DEBUG_PREFIX output long_preamble_detected,
+    `DEBUG_PREFIX output [31:0] sync_long_out,
+    `DEBUG_PREFIX output sync_long_out_strobe,
+    `DEBUG_PREFIX output wire signed [31:0] phase_offset_taken,
+    `DEBUG_PREFIX output [2:0] sync_long_state,
 
     // equalizer
-    output [31:0] equalizer_out,
-    output equalizer_out_strobe,
-    output [3:0] equalizer_state,
-    output wire ofdm_symbol_eq_out_pulse,
+    `DEBUG_PREFIX output [31:0] equalizer_out,
+    `DEBUG_PREFIX output equalizer_out_strobe,
+    `DEBUG_PREFIX output [3:0] equalizer_state,
+    `DEBUG_PREFIX output wire ofdm_symbol_eq_out_pulse,
 
     // legacy signal info
     output reg legacy_sig_stb,
@@ -101,9 +104,9 @@ module dot11 (
     output [1:0] ht_num_ext,
     output reg ht_sig_crc_ok,
 
-    output [14:0] n_ofdm_sym,//max 20166 = (22+65535*8)/26 (max ht len 65535 in sig, min ndbps 26 for mcs0)
-    output [9:0]  n_bit_in_last_sym,//max ht ndbps 260 (ht mcs7)
-    output        phy_len_valid,
+    `DEBUG_PREFIX output [14:0] n_ofdm_sym,//max 20166 = (22+65535*8)/26 (max ht len 65535 in sig, min ndbps 26 for mcs0)
+    `DEBUG_PREFIX output [9:0]  n_bit_in_last_sym,//max ht ndbps 260 (ht mcs7)
+    `DEBUG_PREFIX output        phy_len_valid,
 
     // decoding pipeline
     output [5:0] demod_out,
@@ -133,7 +136,7 @@ assign n_bit_in_last_sym = n_bit_in_last_sym_tmp[9:0];
 ////////////////////////////////////////////////////////////////////////////////
 // extra info output to ease side info and viterbi state monitor
 ////////////////////////////////////////////////////////////////////////////////
-reg  [3:0] equalizer_state_reg;
+`DEBUG_PREFIX reg  [3:0] equalizer_state_reg;
 
 assign ofdm_symbol_eq_out_pulse = (equalizer_state==4 && equalizer_state_reg==7);
 

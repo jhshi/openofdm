@@ -48,7 +48,7 @@ module dot11 (
     // decode status
     // (* mark_debug = "true", DONT_TOUCH = "TRUE" *) 
     output reg [4:0] state,
-    output reg [3:0] status_code,
+    output reg [4:0] status_code,
     output state_changed,
     output reg [31:0] state_history,
 

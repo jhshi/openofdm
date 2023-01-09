@@ -56,20 +56,20 @@ localparam E_WRONG_RSVD =           3;
 localparam E_WRONG_TAIL =           4;
 
 // erros in HT-SIGNAL
-localparam E_UNSUPPORTED_MCS =      1;
-localparam E_UNSUPPORTED_CBW =      2;
-localparam E_HT_WRONG_RSVD =        3;
-localparam E_UNSUPPORTED_STBC =     4;
-localparam E_UNSUPPORTED_FEC =      5;
-localparam E_UNSUPPORTED_SGI =      6;
-localparam E_UNSUPPORTED_SPATIAL =  7;
-localparam E_HT_WRONG_TAIL =        8;
-localparam E_HT_AMPDU_WARN =        9;
-localparam E_HT_AMPDU_ERROR =       10;
-localparam E_WRONG_CRC =            11;
+localparam E_UNSUPPORTED_MCS =      8;
+localparam E_UNSUPPORTED_CBW =      9;
+localparam E_HT_WRONG_RSVD =        10;
+localparam E_UNSUPPORTED_STBC =     11;
+localparam E_UNSUPPORTED_FEC =      12;
+localparam E_UNSUPPORTED_SGI =      13;
+localparam E_UNSUPPORTED_SPATIAL =  14;
+localparam E_HT_WRONG_TAIL =        15;
+localparam E_HT_AMPDU_WARN =        16;
+localparam E_HT_AMPDU_ERROR =       17;
+localparam E_WRONG_CRC =            18;
 
 // fcs error
-localparam E_WRONG_FCS =            1;
+localparam E_WRONG_FCS =            31;
 
 
 localparam EXPECTED_FCS = 32'hc704dd7b;

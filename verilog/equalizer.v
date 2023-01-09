@@ -125,9 +125,12 @@ reg signed [31:0] pilot_sum_q;
 assign phase_in_i = pilot_i_reg;
 assign phase_in_q = pilot_q_reg;
 
-reg signed [15:0] pilot_phase_err;
-reg signed [15:0] cpe; // common phase error due to RFO
-reg signed [15:0] Sxy;
+//reg signed [15:0] pilot_phase_err;
+reg signed [19:0] pilot_phase_err; // 15 --> 19 = 18 + 1, extended from cpe
+//reg signed [15:0] cpe; // common phase error due to RFO
+reg signed [18:0] cpe; // common phase error due to RFO; 15-->18 to avoid overflow: for 4 pilots: cpe = cpe + pilot_iq_phase[pilot_count2[1:0]] +/- 3217/0; (Be careful with more pilots in HE!)
+//reg signed [15:0] Sxy;
+reg signed [26:0] Sxy; // 15-->26. to avoid overflow: pilot_phase_err 19 + 5 + 2. 5 for 21* (rounding to 32); 2 for 4 pilots
 localparam Sx2 = 980;
 
 // linear varying phase error (LVPE) parameters
@@ -140,9 +143,11 @@ assign lvpe_dividend = (sym_idx <= 33 ? sym_idx*Sxy : (sym_idx-64)*Sxy);
 assign lvpe_divisor = Sx2;
 
 
-reg signed [15:0] phase_err;
-wire signed [15:0] sym_phase;
-assign sym_phase = (phase_err > 1608) ? (phase_err - 3217) : ((phase_err < -1608) ? (phase_err + 3217) : phase_err);
+//reg signed [15:0] phase_err;
+reg signed  [20:0] phase_err; // 15-->19: phase_err <= cpe + lvpe[18:0]; 19 + 1 = 20 for sym_phase
+//wire signed [15:0] sym_phase;
+wire signed [20:0] sym_phase;// phase_err 19 + 1
+assign sym_phase = (phase_err > 1608) ? (phase_err - 3217) : ((phase_err < -1608) ? (phase_err + 3217) : phase_err);//only taking [15:0] to rotate could have overflow!
 
 reg rot_in_stb;
 wire signed [15:0] rot_i;
@@ -288,7 +293,8 @@ rotate rotate_inst (
 
     .in_i(buf_i_out),
     .in_q(buf_q_out),
-    .phase(sym_phase),
+    // .phase(sym_phase),
+    .phase(sym_phase[15:0]),//only taking [15:0] to rotate could have overflow!
     .input_strobe(rot_in_stb),
 
     .rot_addr(rot_addr),
@@ -664,7 +670,8 @@ always @(posedge clock) begin
                 if (pilot_count2 == 8) begin
                     pilot_count1 <= 0;
                     pilot_count2 <= 0;
-                    cpe <= {(cpe[15] == 0 ? 2'b00:2'b11),cpe[15:2]};
+//                    cpe <= {(cpe[15] == 0 ? 2'b00:2'b11),cpe[15:2]};
+                    cpe <= {cpe[18], cpe[18], cpe[18:2]};
                     Sxy <= 0;
                     state <= S_CALC_SAMPL_OFFSET;
                 end else if (pilot_count2 > 3) begin
@@ -725,7 +732,8 @@ always @(posedge clock) begin
 
                 // first rotate, then normalize by avg LTS
                 if (lvpe_out_stb) begin
-                    phase_err <= cpe + lvpe[15:0];
+//                    phase_err <= cpe + lvpe[15:0];
+                    phase_err <= {cpe[18], cpe[18], cpe[18:0]} + lvpe[20:0];
                     rot_in_stb <= 1;
                     in_raddr <= in_raddr + 1;
                 end else begin

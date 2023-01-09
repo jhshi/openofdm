@@ -146,6 +146,7 @@
 		.enable( 1 ),
 		//.reset ( (~s00_axi_aresetn)|slv_reg0[0]|openofdm_core_rst ),
 		.reset ( (~s00_axi_aresetn)|slv_reg0[0]|receiver_rst ),
+		.reset_without_watchdog((~s00_axi_aresetn)|slv_reg0[0]),
 
 		.power_thres(slv_reg2[10:0]),
 		.min_plateau(slv_reg3),

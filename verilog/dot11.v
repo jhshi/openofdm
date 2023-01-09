@@ -5,6 +5,7 @@ module dot11 (
     input clock,
     input enable,
     input reset,
+    input reset_without_watchdog,
 
     // setting registers
     //input set_stb,
@@ -469,7 +470,7 @@ crc32 fcs_inst (
 
 phy_len_calculation phy_len_calculation_inst(
     .clock(clock),
-    .reset(reset | long_preamble_detected),
+    .reset(reset_without_watchdog | long_preamble_detected),
     .enable(),
 
     .state(state),

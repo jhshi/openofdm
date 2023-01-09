@@ -700,7 +700,12 @@ always @(posedge clock) begin
 
             S_DETECT_HT: begin
                 legacy_sig_stb <= 0;
-                ofdm_reset <= 1;
+                ofdm_reset <= 0;
+                
+                ofdm_in_stb <= eq_out_stb_delayed;
+                // rotate clockwise by 90 degree
+                ofdm_in_i <= eq_out_q_delayed;
+                ofdm_in_q <= ~eq_out_i_delayed+1;
 
                 if (equalizer_out_strobe) begin
                     abs_eq_i <= eq_out_i[15]? ~eq_out_i+1: eq_out_i;

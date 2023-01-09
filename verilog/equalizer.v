@@ -125,12 +125,13 @@ reg signed [31:0] pilot_sum_q;
 assign phase_in_i = pilot_i_reg;
 assign phase_in_q = pilot_q_reg;
 
+reg sum_phase;
+
 //reg signed [15:0] pilot_phase_err;
-reg signed [19:0] pilot_phase_err; // 15 --> 19 = 18 + 1, extended from cpe
-//reg signed [15:0] cpe; // common phase error due to RFO
-reg signed [18:0] cpe; // common phase error due to RFO; 15-->18 to avoid overflow: for 4 pilots: cpe = cpe + pilot_iq_phase[pilot_count2[1:0]] +/- 3217/0; (Be careful with more pilots in HE!)
+reg signed [16:0] pilot_phase_err; // 15 --> 16 = 15 + 1, extended from cpe
+reg signed [15:0] cpe; // common phase error due to RFO
 //reg signed [15:0] Sxy;
-reg signed [26:0] Sxy; // 15-->26. to avoid overflow: pilot_phase_err 19 + 5 + 2. 5 for 21* (rounding to 32); 2 for 4 pilots
+reg signed [23:0] Sxy; // 15-->23. to avoid overflow: pilot_phase_err 16 + 5 + 2. 5 for 21* (rounding to 32); 2 for 4 pilots
 localparam Sx2 = 980;
 
 // linear varying phase error (LVPE) parameters
@@ -144,9 +145,9 @@ assign lvpe_divisor = Sx2;
 
 
 //reg signed [15:0] phase_err;
-reg signed  [20:0] phase_err; // 15-->19: phase_err <= cpe + lvpe[18:0]; 19 + 1 = 20 for sym_phase
+reg signed  [17:0] phase_err; // 15-->16: phase_err <= cpe + lvpe[17:0]; 16 + 1 = 17 for sym_phase
 //wire signed [15:0] sym_phase;
-wire signed [20:0] sym_phase;// phase_err 19 + 1
+wire signed [17:0] sym_phase;// phase_err 16 + 1
 assign sym_phase = (phase_err > 1608) ? (phase_err - 3217) : ((phase_err < -1608) ? (phase_err + 3217) : phase_err);//only taking [15:0] to rotate could have overflow!
 
 reg rot_in_stb;
@@ -431,6 +432,7 @@ always @(posedge clock) begin
         pilot_i_reg <= 0;
         pilot_q_reg <= 0;
         pilot_iq_phase[0] <= 0; pilot_iq_phase[1] <= 0; pilot_iq_phase[2] <= 0; pilot_iq_phase[3] <= 0;
+        sum_phase <= 0;
 
         prod_in_strobe <= 0;
 
@@ -653,45 +655,37 @@ always @(posedge clock) begin
                     pilot_i_reg <= pilot_i;
                     pilot_q_reg <= pilot_q;
                     phase_in_stb <= 1;
+                end else if (pilot_count2 == 4 && sum_phase == 0) begin
+                    pilot_i_reg <= pilot_sum_i;
+                    pilot_q_reg <= pilot_sum_q; 
+                    phase_in_stb <= 1;
+                    sum_phase <= 1;
                 end else begin
-                    phase_in_stb <= 0;
+                    phase_in_stb <= 0; 
                 end
 
-                if (phase_out_stb) begin
+                if (phase_out_stb && pilot_count2 < 4) begin
                     pilot_count2 <= pilot_count2 + 1;
                     pilot_iq_phase[pilot_count2] <= phase_out;
                     `ifdef DEBUG_PRINT
                         $display("[PILOT OFFSET] %d", phase_out);
                     `endif
-                end else if (pilot_count2 > 3) begin
-                    pilot_count2 <= pilot_count2 + 1;
-                end
-
-                if (pilot_count2 == 8) begin
+                end else if (phase_out_stb && pilot_count2 == 4) begin
+                    cpe <= phase_out; 
                     pilot_count1 <= 0;
                     pilot_count2 <= 0;
-//                    cpe <= {(cpe[15] == 0 ? 2'b00:2'b11),cpe[15:2]};
-                    cpe <= {cpe[18], cpe[18], cpe[18:2]};
                     Sxy <= 0;
                     state <= S_CALC_SAMPL_OFFSET;
-                end else if (pilot_count2 > 3) begin
-                    // sampling rate offset (SFO) is calculated as pilot phase error
-                    if(pilot_sum_i < 0 && pilot_sum_q > 0 && pilot_iq_phase[pilot_count2[1:0]] < 0) begin
-                        cpe = cpe + pilot_iq_phase[pilot_count2[1:0]] + 3217;
-                    end else if(pilot_sum_i < 0 && pilot_sum_q < 0 && pilot_iq_phase[pilot_count2[1:0]] > 0) begin
-                        cpe = cpe + pilot_iq_phase[pilot_count2[1:0]] - 3217;
-                    end else begin
-                        cpe = cpe + pilot_iq_phase[pilot_count2[1:0]];
-                    end
+                    sum_phase <= 0; 
                 end
             end
 
             S_CALC_SAMPL_OFFSET: begin
                 if (pilot_count1 < 4) begin
                     // sampling rate offset (SFO) is calculated as pilot phase error
-                    if(cpe > 804 && pilot_iq_phase[pilot_count1] < 0) begin
+                    if(pilot_iq_phase[pilot_count1] < cpe - 1608) begin
                         pilot_phase_err <= pilot_iq_phase[pilot_count1] - cpe + 3217;
-                    end else if(cpe < -804 && pilot_iq_phase[pilot_count1] > 0) begin
+                    end else if(pilot_iq_phase[pilot_count1] > cpe + 1608) begin
                         pilot_phase_err <= pilot_iq_phase[pilot_count1] - cpe - 3217;
                     end else begin
                         pilot_phase_err <= pilot_iq_phase[pilot_count1] - cpe;
@@ -733,7 +727,7 @@ always @(posedge clock) begin
                 // first rotate, then normalize by avg LTS
                 if (lvpe_out_stb) begin
 //                    phase_err <= cpe + lvpe[15:0];
-                    phase_err <= {cpe[18], cpe[18], cpe[18:0]} + lvpe[20:0];
+                    phase_err <= {cpe[15], cpe[15], cpe[15:0]} + lvpe[17:0];
                     rot_in_stb <= 1;
                     in_raddr <= in_raddr + 1;
                 end else begin

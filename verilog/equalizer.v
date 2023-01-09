@@ -69,6 +69,9 @@ localparam HT_POLARITY = 4'b1000;
 
 localparam IN_BUF_LEN_SHIFT = 6;
 
+reg enable_delay;
+wire reset_internal = (enable==0 && enable_delay==1);//reset internal after the module is disabled in case the disable lock the state/stb to a non-end state.
+
 reg ht;
 reg [5:0] num_data_carrier;
 reg [7:0] num_ofdm_sym;
@@ -199,6 +202,13 @@ reg sample_in_strobe_dly;
 assign csi = {lts_i_out, lts_q_out};
 assign csi_valid = ( (num_ofdm_sym == 1 || (pkt_ht==1 && num_ofdm_sym==5)) && state == S_CALC_FREQ_OFFSET && sample_in_strobe_dly == 1 && enable && (~reset) );
 
+always @(posedge clock) begin
+    if (reset) begin
+        enable_delay <= 0;
+    end else begin
+        enable_delay <= enable;
+    end
+end
 
 ram_2port #(.DWIDTH(32), .AWIDTH(6)) lts_inst (
     .clka(clock),
@@ -218,7 +228,7 @@ ram_2port #(.DWIDTH(32), .AWIDTH(6)) lts_inst (
 calc_mean lts_i_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|reset_internal),
     
     .a(lts_i_out),
     .b(input_i),
@@ -232,7 +242,7 @@ calc_mean lts_i_inst (
 calc_mean lts_q_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|reset_internal),
     
     .a(lts_q_out),
     .b(input_q),
@@ -260,7 +270,7 @@ ram_2port  #(.DWIDTH(32), .AWIDTH(6)) in_buf_inst (
 complex_mult pilot_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|reset_internal),
     .a_i(input_i),
     .a_q(input_q),
     .b_i(lts_i_out),
@@ -274,7 +284,7 @@ complex_mult pilot_inst (
 rotate rotate_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|reset_internal),
 
     .in_i(buf_i_out),
     .in_q(buf_q_out),
@@ -292,7 +302,7 @@ rotate rotate_inst (
 complex_mult input_lts_prod_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|reset_internal),
     .a_i(rot_i),
     .a_q(rot_q),
     .b_i(lts_i_out),
@@ -306,7 +316,7 @@ complex_mult input_lts_prod_inst (
 complex_mult lts_lts_prod_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|reset_internal),
     .a_i(lts_i_out),
     .a_q(lts_q_out),
     .b_i(lts_i_out),
@@ -318,7 +328,7 @@ complex_mult lts_lts_prod_inst (
 divider norm_i_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|reset_internal),
 
     .dividend(dividend_i),
     .divisor(divisor_i),
@@ -331,7 +341,7 @@ divider norm_i_inst (
 divider norm_q_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|reset_internal),
 
     .dividend(dividend_q),
     .divisor(divisor_q),
@@ -344,7 +354,7 @@ divider norm_q_inst (
 divider lvpe_inst (
     .clock(clock),
     .enable(enable),
-    .reset(reset),
+    .reset(reset|reset_internal),
 
     .dividend(lvpe_dividend),
     .divisor(lvpe_divisor),
@@ -365,7 +375,7 @@ localparam S_ADJUST_FREQ_and_SAMPL_OFFSET = 7;
 localparam S_HT_LTS = 8;
 
 always @(posedge clock) begin
-    if (reset) begin
+    if (reset|reset_internal) begin
         sample_out_strobe <= 0;
         lts_raddr <= 0;
         lts_waddr <= 0;

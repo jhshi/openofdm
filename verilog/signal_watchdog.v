@@ -14,6 +14,8 @@ module signal_watchdog
     input signed [(IQ_DATA_WIDTH-1):0] q_data,
     input iq_valid,
 
+    input power_trigger,
+
     input [15:0] signal_len,
     input sig_valid,
 
@@ -45,7 +47,7 @@ module signal_watchdog
 
     assign receiver_rst_pulse = (receiver_rst_internal&&(~receiver_rst_reg));
 
-    assign receiver_rst = ( receiver_rst_reg | (sig_valid && (signal_len<min_signal_len_th || signal_len>max_signal_len_th)) );
+    assign receiver_rst = ( power_trigger & ( receiver_rst_reg | (sig_valid && (signal_len<min_signal_len_th || signal_len>max_signal_len_th)) ) );
 
     always @(posedge clk) begin
         if (~rstn) begin

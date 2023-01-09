@@ -115,6 +115,7 @@
 
 	assign slv_reg31 = `OPENOFDM_RX_GIT_REV;
 
+	wire power_trigger;
 	wire sig_valid = (pkt_header_valid_strobe&pkt_header_valid);
 	wire receiver_rst;
 
@@ -126,6 +127,8 @@
 		.i_data(sample_in[31:16]),
 		.q_data(sample_in[15:0]),
 		.iq_valid(sample_in_strobe),
+
+		.power_trigger(power_trigger),
 
 		.signal_len(pkt_len),
     	.sig_valid(sig_valid),
@@ -186,7 +189,7 @@
 		.state_changed(state_changed),
 		.state_history(slv_reg20),
 		// power trigger
-		.power_trigger(),
+		.power_trigger(power_trigger),
 
 		// sync short
 		.short_preamble_detected(short_preamble_detected),

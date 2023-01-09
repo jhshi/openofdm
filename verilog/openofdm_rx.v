@@ -130,6 +130,7 @@
 		.signal_len(pkt_len),
     	.sig_valid(sig_valid),
 
+		.min_signal_len_th(slv_reg4[15:12]),
     	.max_signal_len_th(slv_reg4[31:16]),
 		.dc_running_sum_th(slv_reg2[23:16]),
 

@@ -17,6 +17,7 @@ module signal_watchdog
     input [15:0] signal_len,
     input sig_valid,
 
+    input [15:0] min_signal_len_th,
     input [15:0] max_signal_len_th,
     input signed [(LOG2_SUM_LEN+2-1):0] dc_running_sum_th,
 
@@ -44,7 +45,7 @@ module signal_watchdog
 
     assign receiver_rst_pulse = (receiver_rst_internal&&(~receiver_rst_reg));
 
-    assign receiver_rst = ( receiver_rst_reg | (sig_valid && (signal_len<14 || signal_len>max_signal_len_th)) );
+    assign receiver_rst = ( receiver_rst_reg | (sig_valid && (signal_len<min_signal_len_th || signal_len>max_signal_len_th)) );
 
     always @(posedge clk) begin
         if (~rstn) begin

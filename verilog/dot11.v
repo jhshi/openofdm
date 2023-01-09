@@ -208,7 +208,6 @@ phase phase_inst (
 );
 ////////////////////////////////////////////////////////////////////////////////
 
-
 reg sync_short_reset;
 reg sync_long_reset;
 // wire sync_short_enable = state == S_SYNC_SHORT;
@@ -239,7 +238,7 @@ reg [15:0] ofdm_in_i;
 reg [15:0] ofdm_in_q;
 
 reg do_descramble;
-reg [31:0] num_bits_to_decode;
+reg [19:0] num_bits_to_decode; //4bits + ht_len: num_bits_to_decode <= (22+(ht_len<<3));
 reg short_gi;
 
 reg [4:0] old_state;
@@ -257,7 +256,6 @@ assign legacy_sig_parity = signal_bits[17];
 assign legacy_sig_tail = signal_bits[23:18];
 assign legacy_sig_parity_ok = ~^signal_bits[17:0];
 
-
 // HT-SIG information
 reg [23:0] ht_sig1;
 reg [23:0] ht_sig2;
@@ -273,7 +271,6 @@ assign ht_stbc = ht_sig2[5:4];
 assign ht_fec_coding = ht_sig2[6];
 assign ht_sgi = ht_sig2[7];
 assign ht_num_ext = ht_sig2[9:8];
-
 
 wire ht_rsvd = ht_sig2[2];
 wire [7:0] crc = ht_sig2[17:10];
@@ -602,7 +599,7 @@ always @(posedge clock) begin
                     demod_is_ongoing <= 1;
                     pkt_rate <= {1'b0, 3'b0, 4'b1011};
                     do_descramble <= 0;
-                    num_bits_to_decode <= 48;
+                    num_bits_to_decode <= 24;
 
                     ofdm_reset <= 1;
                     ofdm_enable <= 1;
@@ -644,7 +641,7 @@ always @(posedge clock) begin
                             "tail = %6b", legacy_sig_tail);
                     `endif
 
-                    num_bits_to_decode <= (22+(legacy_len<<3))<<1;
+                    num_bits_to_decode <= (22+(legacy_len<<3));
                     pkt_rate <= {1'b0, 3'b0, legacy_rate};
                     pkt_len <= legacy_len;
                     pkt_len_total <= legacy_len+3;
@@ -719,7 +716,7 @@ always @(posedge clock) begin
 
                 if (rot_eq_count >= 4) begin
                     // HT-SIG detected
-                    num_bits_to_decode <= 96;
+                    num_bits_to_decode <= 48;
                     do_descramble <= 0;
                     state <= S_HT_SIGNAL;
                 end else if (normal_eq_count > 4) begin
@@ -767,7 +764,7 @@ always @(posedge clock) begin
                             "tail = %06b", ht_sig_tail);
                     `endif
 
-                    num_bits_to_decode <= (22+(ht_len<<3))<<1;
+                    num_bits_to_decode <= (22+(ht_len<<3));
                     pkt_rate <= {1'b1, ht_mcs};
                     pkt_len_rem <= ht_len;
                     pkt_len <= ht_len;

@@ -243,7 +243,7 @@ always @(posedge clock) begin
         end
         
         // for finer sample_in_strobe phase control
-        if (clk_count == 3) begin
+        if (clk_count == 4) begin
             sample_in_strobe <= 1;
         end else begin
             sample_in_strobe <= 0;

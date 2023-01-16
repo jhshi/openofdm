@@ -12,11 +12,11 @@ module dot11 (
     //input [31:0] set_data,
     
     // add ports for register based inputs
-    input [10:0] power_thres,
+    input signed [10:0] power_thres,
     input [31:0] min_plateau,
 
     // INPUT: RSSI
-    input [10:0] rssi_half_db,
+    input signed [10:0] rssi_half_db,
     // INPUT: I/Q sample
     input [31:0] sample_in,
     input sample_in_strobe,

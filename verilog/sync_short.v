@@ -6,10 +6,12 @@ module sync_short (
     input enable,
 
     input [31:0] min_plateau,
+    input threshold_scale,
 
     input [31:0] sample_in,
     input sample_in_strobe,
 
+    input demod_is_ongoing,
     output reg short_preamble_detected,
 
     input [15:0] phase_out,
@@ -25,6 +27,11 @@ module sync_short (
 
 localparam WINDOW_SHIFT = 4;
 localparam DELAY_SHIFT = 4;
+
+reg reset_delay1;
+reg reset_delay2;
+reg reset_delay3;
+reg reset_delay4;
 
 wire [31:0] mag_sq;
 wire mag_sq_stb;
@@ -42,15 +49,8 @@ reg sample_delayed_conj_stb;
 wire [63:0] prod;
 wire prod_stb;
 
-reg [15:0] delay_i;
-reg [15:0] delay_q_neg;
-
 wire [63:0] prod_avg;
 wire prod_avg_stb;
-
-wire [31:0] freq_offset_i;
-wire [31:0] freq_offset_q;
-wire freq_offset_stb;
 
 reg [15:0] phase_out_neg;
 reg [15:0] phase_offset_neg;
@@ -91,26 +91,46 @@ complex_to_mag_sq mag_sq_inst (
     .mag_sq_strobe(mag_sq_stb)
 );
 
-moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT)) mag_sq_avg_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
+// moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT)) mag_sq_avg_inst (
+//     .clock(clock),
+//     .enable(enable),
+//     .reset(reset),
 
-    .data_in(mag_sq),
-    .input_strobe(mag_sq_stb),
+//     .data_in(mag_sq),
+//     .input_strobe(mag_sq_stb),
+//     .data_out(mag_sq_avg),
+//     .output_strobe(mag_sq_avg_stb)
+// );
+mv_avg #(.DATA_WIDTH(33), .LOG2_AVG_LEN(WINDOW_SHIFT)) mag_sq_avg_inst (
+    .clk(clock),
+    .rstn(~(reset|reset_delay1|reset_delay2|reset_delay3|reset_delay4)),
+    // .rstn(~reset),
+
+    .data_in({1'd0, mag_sq}),
+    .data_in_valid(mag_sq_stb),
     .data_out(mag_sq_avg),
-    .output_strobe(mag_sq_avg_stb)
+    .data_out_valid(mag_sq_avg_stb)
 );
 
-delay_sample #(.DATA_WIDTH(32), .DELAY_SHIFT(DELAY_SHIFT)) sample_delayed_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
+// delay_sample #(.DATA_WIDTH(32), .DELAY_SHIFT(DELAY_SHIFT)) sample_delayed_inst (
+//     .clock(clock),
+//     .enable(enable),
+//     .reset(reset),
 
+//     .data_in(sample_in),
+//     .input_strobe(sample_in_strobe),
+//     .data_out(sample_delayed),
+//     .output_strobe(sample_delayed_stb)
+// );
+
+fifo_sample_delay # (.DATA_WIDTH(32), .LOG2_FIFO_DEPTH(5)) sample_delayed_inst (
+    .clk(clock),
+    .rst(reset|reset_delay1|reset_delay2|reset_delay3|reset_delay4),
+    .delay_ctl(16),
     .data_in(sample_in),
-    .input_strobe(sample_in_strobe),
+    .data_in_valid(sample_in_strobe),
     .data_out(sample_delayed),
-    .output_strobe(sample_delayed_stb)
+    .data_out_valid(sample_delayed_stb)
 );
 
 complex_mult delay_prod_inst (
@@ -129,48 +149,53 @@ complex_mult delay_prod_inst (
     .output_strobe(prod_stb)
 );
 
-moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT))
-delay_prod_avg_i_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
-    .data_in(prod[63:32]),
-    .input_strobe(prod_stb),
-    .data_out(prod_avg[63:32]),
-    .output_strobe(prod_avg_stb)
+// moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT))
+// delay_prod_avg_i_inst (
+//     .clock(clock),
+//     .enable(enable),
+//     .reset(reset),
+//     .data_in(prod[63:32]),
+//     .input_strobe(prod_stb),
+//     .data_out(prod_avg[63:32]),
+//     .output_strobe(prod_avg_stb)
+// );
+
+// moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT)) 
+// delay_prod_avg_q_inst (
+//     .clock(clock),
+//     .enable(enable),
+//     .reset(reset),
+//     .data_in(prod[31:0]),
+//     .input_strobe(prod_stb),
+//     .data_out(prod_avg[31:0])
+// );
+
+mv_avg_dual_ch #(.DATA_WIDTH0(32), .DATA_WIDTH1(32), .LOG2_AVG_LEN(WINDOW_SHIFT)) delay_prod_avg_inst (
+    .clk(clock),
+    .rstn(~(reset|reset_delay1|reset_delay2|reset_delay3|reset_delay4)),
+    // .rstn(~reset),
+
+    .data_in0(prod[63:32]),
+    .data_in1(prod[31:0]),
+    .data_in_valid(prod_stb),
+
+    .data_out0(prod_avg[63:32]),
+    .data_out1(prod_avg[31:0]),
+    .data_out_valid(prod_avg_stb)
 );
 
-moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT)) 
-delay_prod_avg_q_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
-    .data_in(prod[31:0]),
-    .input_strobe(prod_stb),
-    .data_out(prod_avg[31:0])
-);
+mv_avg_dual_ch #(.DATA_WIDTH0(32), .DATA_WIDTH1(32), .LOG2_AVG_LEN(6)) freq_offset_inst (
+    .clk(clock),
+    .rstn(~(reset|reset_delay1|reset_delay2|reset_delay3|reset_delay4)),
+    // .rstn(~reset),
+    
+    .data_in0(prod[63:32]),
+    .data_in1(prod[31:0]),
+    .data_in_valid(prod_stb),
 
-
-// for fixing freq offset
-moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(6))
-freq_offset_i_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
-    .data_in(prod[63:32]),
-    .input_strobe(prod_stb),
-    .data_out(phase_in_i),
-    .output_strobe(phase_in_stb)
-);
-
-moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(6)) 
-freq_offset_q_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
-    .data_in(prod[31:0]),
-    .input_strobe(prod_stb),
-    .data_out(phase_in_q)
+    .data_out0(phase_in_i),
+    .data_out1(phase_in_q),
+    .data_out_valid(phase_in_stb)
 );
 
 complex_to_mag #(.DATA_WIDTH(32)) delay_prod_avg_mag_inst (
@@ -187,6 +212,11 @@ complex_to_mag #(.DATA_WIDTH(32)) delay_prod_avg_mag_inst (
 
 always @(posedge clock) begin
     if (reset) begin
+        reset_delay1 <= reset;
+        reset_delay2 <= reset;
+        reset_delay3 <= reset;
+        reset_delay4 <= reset;
+
         sample_delayed_conj <= 0;
         sample_delayed_conj_stb <= 0;
 
@@ -202,8 +232,13 @@ always @(posedge clock) begin
 
         plateau_count <= 0;
         short_preamble_detected <= 0;
-        phase_offset <= 0;
+        phase_offset <= phase_offset; // do not clear it. sync short will reset soon after stf detected, but sync long still needs it.
     end else if (enable) begin
+        reset_delay4 <= reset_delay3;
+        reset_delay3 <= reset_delay2;
+        reset_delay2 <= reset_delay1;
+        reset_delay1 <= reset;
+
         sample_delayed_conj_stb <= sample_delayed_stb;
         sample_delayed_conj[31:16] <= sample_delayed[31:16];
         sample_delayed_conj[15:0] <= ~sample_delayed[15:0]+1;
@@ -216,7 +251,7 @@ always @(posedge clock) begin
         phase_out_neg <= ~phase_out + 1;
         phase_offset_neg <= {{4{phase_out[15]}}, phase_out[15:4]};
 
-        prod_thres <= {1'b0, mag_sq_avg[31:1]} + {2'b0, mag_sq_avg[31:2]};
+        prod_thres <= ( threshold_scale? ({2'b0, mag_sq_avg[31:2]} + {3'b0, mag_sq_avg[31:3]}):({1'b0, mag_sq_avg[31:1]} + {2'b0, mag_sq_avg[31:2]}) );
         
         if (delay_prod_avg_mag_stb) begin
             if (delay_prod_avg_mag > prod_thres) begin
@@ -230,10 +265,12 @@ always @(posedge clock) begin
                     pos_count <= 0;
                     neg_count <= 0;
                     short_preamble_detected <= has_pos & has_neg;
-                    if(phase_out_neg[3] == 0)  // E.g. 131/16 = 8.1875 -> 8, -138/16 = -8.625 -> -9
-                        phase_offset <= {{4{phase_out_neg[15]}}, phase_out_neg[15:4]};
-                    else  // E.g. -131/16 = -8.1875 -> -8, 138/16 = 8.625 -> 9
-                        phase_offset <= ~phase_offset_neg + 1;
+                    if (has_pos && has_neg && demod_is_ongoing==0) begin // only update and lock phase_offset to new value when short_preamble_detected and not start demod yet
+                        if(phase_out_neg[3] == 0)  // E.g. 131/16 = 8.1875 -> 8, -138/16 = -8.625 -> -9
+                            phase_offset <= {{4{phase_out_neg[15]}}, phase_out_neg[15:4]};
+                        else  // E.g. -131/16 = -8.1875 -> -8, 138/16 = 8.625 -> 9
+                            phase_offset <= ~phase_offset_neg + 1;
+                    end
                 end else begin
                     plateau_count <= plateau_count + 1;
                     short_preamble_detected <= 0;

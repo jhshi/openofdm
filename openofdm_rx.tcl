@@ -60,6 +60,8 @@ if {$NUM_CLK_PER_US == 100} {
   throw {NUM_CLK_PER_US MUST BE 100/200/240/400!}
 }
 
+puts $fd "`define BETTER_SENSITIVITY"
+
 if {$ARGUMENT3 eq ""} {
   puts $fd "`define SAMPLE_FILE \"../../../../../testing_inputs/simulated/ht_mcs7_gi1_aggr0_len14_pre100_post200_openwifi.txt\""
 } else {
@@ -261,7 +263,7 @@ set files [list \
  "[file normalize "$origin_dir/verilog/crc32.v"]"\
  "[file normalize "$origin_dir/verilog/deinterleave.v"]"\
  "[file normalize "$origin_dir/verilog/delayT.v"]"\
- "[file normalize "$origin_dir/verilog/delay_sample.v"]"\
+ "[file normalize "$origin_dir/verilog/fifo_sample_delay.v"]"\
  "[file normalize "$origin_dir/verilog/common_defs.v"]"\
  "[file normalize "$origin_dir/verilog/demodulate.v"]"\
  "[file normalize "$origin_dir/verilog/descramble.v"]"\
@@ -270,6 +272,8 @@ set files [list \
  "[file normalize "$origin_dir/verilog/equalizer.v"]"\
  "[file normalize "$origin_dir/verilog/ht_sig_crc.v"]"\
  "[file normalize "$origin_dir/verilog/moving_avg.v"]"\
+ "[file normalize "$origin_dir/verilog/mv_avg.v"]"\
+ "[file normalize "$origin_dir/verilog/mv_avg_dual_ch.v"]"\
  "[file normalize "$origin_dir/verilog/ofdm_decoder.v"]"\
  "[file normalize "$origin_dir/verilog/openofdm_rx_s_axi.v"]"\
  "[file normalize "$origin_dir/verilog/phase.v"]"\
@@ -281,6 +285,7 @@ set files [list \
  "[file normalize "$origin_dir/verilog/openofdm_rx.v"]"\
  "[file normalize "$origin_dir/verilog/running_sum_dual_ch.v"]"\
  "[file normalize "$origin_dir/verilog/signal_watchdog.v"]"\
+ "[file normalize "$origin_dir/verilog/phy_len_calculation.v"]"\
  "[file normalize "$origin_dir/ip_repo/complex_multiplier/complex_multiplier.xci"]"\
  "[file normalize "$origin_dir/ip_repo/atan_lut/atan_lut.coe"]"\
  "[file normalize "$origin_dir/ip_repo/atan_lut/atan_lut.xci"]"\
@@ -322,6 +327,11 @@ set_property -name "used_in" -value "synthesis simulation" -objects $file_obj
 set_property -name "used_in_implementation" -value "0" -objects $file_obj
 
 set file "signal_watchdog.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "used_in" -value "synthesis simulation" -objects $file_obj
+set_property -name "used_in_implementation" -value "0" -objects $file_obj
+
+set file "phy_len_calculation.v"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "used_in" -value "synthesis simulation" -objects $file_obj
 set_property -name "used_in_implementation" -value "0" -objects $file_obj

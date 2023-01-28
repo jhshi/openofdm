@@ -7,6 +7,7 @@ module sync_long (
     input sample_in_strobe,
     input signed [15:0] phase_offset,
     input short_gi,
+    input [3:0] fft_win_shift,
 
     output [`ROTATE_LUT_LEN_SHIFT-1:0] rot_addr,
     input [31:0] rot_data,
@@ -277,7 +278,7 @@ always @(posedge clock) begin
 
                 if (metric_stb && (metric > metric_max1)) begin
                     metric_max1 <= metric;
-                    addr1 <= in_raddr - 1;
+                    addr1 <= in_raddr - 1 -fft_win_shift;
                 end
 
                 if (num_sample >= 88) begin

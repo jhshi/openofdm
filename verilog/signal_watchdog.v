@@ -14,9 +14,12 @@ module signal_watchdog
     input signed [(IQ_DATA_WIDTH-1):0] q_data,
     input iq_valid,
 
+    input power_trigger,
+
     input [15:0] signal_len,
     input sig_valid,
 
+    input [15:0] min_signal_len_th,
     input [15:0] max_signal_len_th,
     input signed [(LOG2_SUM_LEN+2-1):0] dc_running_sum_th,
 
@@ -24,6 +27,7 @@ module signal_watchdog
 );
     wire signed [1:0] i_sign;
     wire signed [1:0] q_sign;
+    reg  signed [1:0] fake_non_dc_in_case_all_zero;
     wire signed [(LOG2_SUM_LEN+2-1):0] running_sum_result_i;
     wire signed [(LOG2_SUM_LEN+2-1):0] running_sum_result_q;
     wire signed [(LOG2_SUM_LEN+2-1):0] running_sum_result_i_abs;
@@ -33,8 +37,8 @@ module signal_watchdog
     reg receiver_rst_reg;
     wire receiver_rst_pulse;
 
-    assign i_sign = (i_data[(IQ_DATA_WIDTH-1)] ? -1 : 1);
-    assign q_sign = (q_data[(IQ_DATA_WIDTH-1)] ? -1 : 1);
+    assign i_sign = (i_data == 0? fake_non_dc_in_case_all_zero : (i_data[(IQ_DATA_WIDTH-1)] ? -1 : 1) );
+    assign q_sign = (q_data == 0? fake_non_dc_in_case_all_zero : (q_data[(IQ_DATA_WIDTH-1)] ? -1 : 1) );
 
     assign running_sum_result_i_abs = (running_sum_result_i[LOG2_SUM_LEN+2-1]?(-running_sum_result_i):running_sum_result_i);
     assign running_sum_result_q_abs = (running_sum_result_q[LOG2_SUM_LEN+2-1]?(-running_sum_result_q):running_sum_result_q);
@@ -43,13 +47,21 @@ module signal_watchdog
 
     assign receiver_rst_pulse = (receiver_rst_internal&&(~receiver_rst_reg));
 
-    assign receiver_rst = ( receiver_rst_reg | (sig_valid && (signal_len<14 || signal_len>max_signal_len_th)) );
+    assign receiver_rst = ( power_trigger & ( receiver_rst_reg | (sig_valid && (signal_len<min_signal_len_th || signal_len>max_signal_len_th)) ) );
 
     always @(posedge clk) begin
         if (~rstn) begin
             receiver_rst_reg <= 0;
+            fake_non_dc_in_case_all_zero <= 1;
         end else begin
             receiver_rst_reg <= receiver_rst_internal;
+            if (iq_valid) begin
+                if (fake_non_dc_in_case_all_zero == 1) begin
+                    fake_non_dc_in_case_all_zero <= -1;
+                end else begin
+                    fake_non_dc_in_case_all_zero <= 1;
+                end
+            end
         end
     end
 

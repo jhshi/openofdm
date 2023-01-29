@@ -12,7 +12,7 @@ module complex_to_mag
     input input_strobe,
 
     output reg [DATA_WIDTH-1:0] mag,
-    output mag_stb
+    output reg mag_stb
 );
 
 reg [DATA_WIDTH-1:0] abs_i;
@@ -21,13 +21,16 @@ reg [DATA_WIDTH-1:0] abs_q;
 reg [DATA_WIDTH-1:0] max;
 reg[ DATA_WIDTH-1:0] min;
 
-delayT #(.DATA_WIDTH(1), .DELAY(3)) stb_delay_inst (
-    .clock(clock),
-    .reset(reset),
+reg input_strobe_reg0;
+reg input_strobe_reg1;
 
-    .data_in(input_strobe),
-    .data_out(mag_stb)
-);
+// delayT #(.DATA_WIDTH(1), .DELAY(3)) stb_delay_inst (
+//     .clock(clock),
+//     .reset(reset),
+
+//     .data_in(input_strobe),
+//     .data_out(mag_stb)
+// );
 
 
 // http://dspguru.com/dsp/tricks/magnitude-estimator
@@ -40,6 +43,8 @@ always @(posedge clock) begin
         abs_q <= 0;
         max <= 0;
         min <= 0;
+        input_strobe_reg0 <= 0;
+        input_strobe_reg1 <= 0;
     end else if (enable) begin
         abs_i <= i[DATA_WIDTH-1]? (~i+1): i;
         abs_q <= q[DATA_WIDTH-1]? (~q+1): q;
@@ -48,6 +53,10 @@ always @(posedge clock) begin
         min <= abs_i > abs_q? abs_q: abs_i;
 
         mag <= max + (min>>2);
+
+        input_strobe_reg0 <= input_strobe;
+        input_strobe_reg1 <= input_strobe_reg0;
+        mag_stb           <= input_strobe_reg1;
     end
 end
 

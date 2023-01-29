@@ -6,10 +6,12 @@ module sync_short (
     input enable,
 
     input [31:0] min_plateau,
+    input threshold_scale,
 
     input [31:0] sample_in,
     input sample_in_strobe,
 
+    input demod_is_ongoing,
     output reg short_preamble_detected,
 
     input [15:0] phase_out,
@@ -25,6 +27,11 @@ module sync_short (
 
 localparam WINDOW_SHIFT = 4;
 localparam DELAY_SHIFT = 4;
+
+reg reset_delay1;
+reg reset_delay2;
+reg reset_delay3;
+reg reset_delay4;
 
 wire [31:0] mag_sq;
 wire mag_sq_stb;
@@ -42,15 +49,8 @@ reg sample_delayed_conj_stb;
 wire [63:0] prod;
 wire prod_stb;
 
-reg [15:0] delay_i;
-reg [15:0] delay_q_neg;
-
 wire [63:0] prod_avg;
 wire prod_avg_stb;
-
-wire [31:0] freq_offset_i;
-wire [31:0] freq_offset_q;
-wire freq_offset_stb;
 
 reg [15:0] phase_out_neg;
 reg [15:0] phase_offset_neg;
@@ -78,64 +78,6 @@ reg has_neg;
     .clk(clock), .rst(reset), .strobe(set_stb), .addr(set_addr), .in(set_data),
     .out(min_plateau), .changed());*/
 
-/*
-// =============save signal to file for matlab bit-true comparison===========
-integer file_open_trigger = 0;
-integer mag_sq_fd, mag_sq_avg_fd, prod_fd, prod_avg_fd, phase_in_fd, phase_out_fd, delay_prod_avg_mag_fd;
-wire signed [31:0] prod_i, prod_q, prod_avg_i, prod_avg_q, phase_in_i_signed, phase_in_q_signed;
-wire signed [15:0] phase_out_signed;
-assign prod_i = prod[63:32];
-assign prod_q = prod[31:0];
-assign prod_avg_i = prod_avg[63:32];
-assign prod_avg_q = prod_avg[31:0];
-assign phase_in_i_signed = phase_in_i;
-assign phase_in_q_signed = phase_in_q;
-assign phase_out_signed = phase_out;
-
-always @(posedge clock) begin
-    file_open_trigger = file_open_trigger + 1;
-    if (file_open_trigger==1) begin
-        mag_sq_fd = $fopen("./mag_sq.txt", "w");
-        mag_sq_avg_fd = $fopen("./mag_sq_avg.txt", "w");
-        prod_fd = $fopen("./prod.txt", "w");
-        prod_avg_fd = $fopen("./prod_avg.txt", "w");
-        phase_in_fd = $fopen("./phase_in.txt", "w");
-        phase_out_fd = $fopen("./phase_out.txt", "w");
-        delay_prod_avg_mag_fd = $fopen("./delay_prod_avg_mag.txt", "w");
-    end
-
-    if (mag_sq_stb && enable && (~reset) ) begin
-        $fwrite(mag_sq_fd, "%d\n", mag_sq);
-        $fflush(mag_sq_fd);
-    end
-    if (mag_sq_avg_stb && enable && (~reset) ) begin
-        $fwrite(mag_sq_avg_fd, "%d\n", mag_sq_avg);
-        $fflush(mag_sq_avg_fd);
-    end
-    if (prod_stb && enable && (~reset) ) begin
-        $fwrite(prod_fd, "%d %d\n", prod_i, prod_q);
-        $fflush(prod_fd);
-    end
-    if (prod_avg_stb && enable && (~reset) ) begin
-        $fwrite(prod_avg_fd, "%d %d\n", prod_avg_i, prod_avg_q);
-        $fflush(prod_avg_fd);
-    end
-    if (phase_in_stb && enable && (~reset) ) begin
-        $fwrite(phase_in_fd, "%d %d\n", phase_in_i_signed, phase_in_q_signed);
-        $fflush(phase_in_fd);
-    end
-    if (phase_out_stb && enable && (~reset) ) begin
-        $fwrite(phase_out_fd, "%d\n", phase_out_signed);
-        $fflush(phase_out_fd);
-    end
-    if (delay_prod_avg_mag_stb && enable && (~reset) ) begin
-        $fwrite(delay_prod_avg_mag_fd, "%d\n", delay_prod_avg_mag);
-        $fflush(delay_prod_avg_mag_fd);
-    end
-end
-// ==========end of save signal to file for matlab bit-true comparison===========
-*/
-
 complex_to_mag_sq mag_sq_inst (
     .clock(clock),
     .enable(enable),
@@ -149,26 +91,46 @@ complex_to_mag_sq mag_sq_inst (
     .mag_sq_strobe(mag_sq_stb)
 );
 
-moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT)) mag_sq_avg_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
+// moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT)) mag_sq_avg_inst (
+//     .clock(clock),
+//     .enable(enable),
+//     .reset(reset),
 
-    .data_in(mag_sq),
-    .input_strobe(mag_sq_stb),
+//     .data_in(mag_sq),
+//     .input_strobe(mag_sq_stb),
+//     .data_out(mag_sq_avg),
+//     .output_strobe(mag_sq_avg_stb)
+// );
+mv_avg #(.DATA_WIDTH(33), .LOG2_AVG_LEN(WINDOW_SHIFT)) mag_sq_avg_inst (
+    .clk(clock),
+    .rstn(~(reset|reset_delay1|reset_delay2|reset_delay3|reset_delay4)),
+    // .rstn(~reset),
+
+    .data_in({1'd0, mag_sq}),
+    .data_in_valid(mag_sq_stb),
     .data_out(mag_sq_avg),
-    .output_strobe(mag_sq_avg_stb)
+    .data_out_valid(mag_sq_avg_stb)
 );
 
-delay_sample #(.DATA_WIDTH(32), .DELAY_SHIFT(DELAY_SHIFT)) sample_delayed_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
+// delay_sample #(.DATA_WIDTH(32), .DELAY_SHIFT(DELAY_SHIFT)) sample_delayed_inst (
+//     .clock(clock),
+//     .enable(enable),
+//     .reset(reset),
 
+//     .data_in(sample_in),
+//     .input_strobe(sample_in_strobe),
+//     .data_out(sample_delayed),
+//     .output_strobe(sample_delayed_stb)
+// );
+
+fifo_sample_delay # (.DATA_WIDTH(32), .LOG2_FIFO_DEPTH(5)) sample_delayed_inst (
+    .clk(clock),
+    .rst(reset|reset_delay1|reset_delay2|reset_delay3|reset_delay4),
+    .delay_ctl(16),
     .data_in(sample_in),
-    .input_strobe(sample_in_strobe),
+    .data_in_valid(sample_in_strobe),
     .data_out(sample_delayed),
-    .output_strobe(sample_delayed_stb)
+    .data_out_valid(sample_delayed_stb)
 );
 
 complex_mult delay_prod_inst (
@@ -187,48 +149,53 @@ complex_mult delay_prod_inst (
     .output_strobe(prod_stb)
 );
 
-moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT))
-delay_prod_avg_i_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
-    .data_in(prod[63:32]),
-    .input_strobe(prod_stb),
-    .data_out(prod_avg[63:32]),
-    .output_strobe(prod_avg_stb)
+// moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT))
+// delay_prod_avg_i_inst (
+//     .clock(clock),
+//     .enable(enable),
+//     .reset(reset),
+//     .data_in(prod[63:32]),
+//     .input_strobe(prod_stb),
+//     .data_out(prod_avg[63:32]),
+//     .output_strobe(prod_avg_stb)
+// );
+
+// moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT)) 
+// delay_prod_avg_q_inst (
+//     .clock(clock),
+//     .enable(enable),
+//     .reset(reset),
+//     .data_in(prod[31:0]),
+//     .input_strobe(prod_stb),
+//     .data_out(prod_avg[31:0])
+// );
+
+mv_avg_dual_ch #(.DATA_WIDTH0(32), .DATA_WIDTH1(32), .LOG2_AVG_LEN(WINDOW_SHIFT)) delay_prod_avg_inst (
+    .clk(clock),
+    .rstn(~(reset|reset_delay1|reset_delay2|reset_delay3|reset_delay4)),
+    // .rstn(~reset),
+
+    .data_in0(prod[63:32]),
+    .data_in1(prod[31:0]),
+    .data_in_valid(prod_stb),
+
+    .data_out0(prod_avg[63:32]),
+    .data_out1(prod_avg[31:0]),
+    .data_out_valid(prod_avg_stb)
 );
 
-moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(WINDOW_SHIFT)) 
-delay_prod_avg_q_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
-    .data_in(prod[31:0]),
-    .input_strobe(prod_stb),
-    .data_out(prod_avg[31:0])
-);
+mv_avg_dual_ch #(.DATA_WIDTH0(32), .DATA_WIDTH1(32), .LOG2_AVG_LEN(6)) freq_offset_inst (
+    .clk(clock),
+    .rstn(~(reset|reset_delay1|reset_delay2|reset_delay3|reset_delay4)),
+    // .rstn(~reset),
+    
+    .data_in0(prod[63:32]),
+    .data_in1(prod[31:0]),
+    .data_in_valid(prod_stb),
 
-
-// for fixing freq offset
-moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(6))
-freq_offset_i_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
-    .data_in(prod[63:32]),
-    .input_strobe(prod_stb),
-    .data_out(phase_in_i),
-    .output_strobe(phase_in_stb)
-);
-
-moving_avg #(.DATA_WIDTH(32), .WINDOW_SHIFT(6)) 
-freq_offset_q_inst (
-    .clock(clock),
-    .enable(enable),
-    .reset(reset),
-    .data_in(prod[31:0]),
-    .input_strobe(prod_stb),
-    .data_out(phase_in_q)
+    .data_out0(phase_in_i),
+    .data_out1(phase_in_q),
+    .data_out_valid(phase_in_stb)
 );
 
 complex_to_mag #(.DATA_WIDTH(32)) delay_prod_avg_mag_inst (
@@ -245,6 +212,11 @@ complex_to_mag #(.DATA_WIDTH(32)) delay_prod_avg_mag_inst (
 
 always @(posedge clock) begin
     if (reset) begin
+        reset_delay1 <= reset;
+        reset_delay2 <= reset;
+        reset_delay3 <= reset;
+        reset_delay4 <= reset;
+
         sample_delayed_conj <= 0;
         sample_delayed_conj_stb <= 0;
 
@@ -260,8 +232,13 @@ always @(posedge clock) begin
 
         plateau_count <= 0;
         short_preamble_detected <= 0;
-        phase_offset <= 0;
+        phase_offset <= phase_offset; // do not clear it. sync short will reset soon after stf detected, but sync long still needs it.
     end else if (enable) begin
+        reset_delay4 <= reset_delay3;
+        reset_delay3 <= reset_delay2;
+        reset_delay2 <= reset_delay1;
+        reset_delay1 <= reset;
+
         sample_delayed_conj_stb <= sample_delayed_stb;
         sample_delayed_conj[31:16] <= sample_delayed[31:16];
         sample_delayed_conj[15:0] <= ~sample_delayed[15:0]+1;
@@ -274,7 +251,7 @@ always @(posedge clock) begin
         phase_out_neg <= ~phase_out + 1;
         phase_offset_neg <= {{4{phase_out[15]}}, phase_out[15:4]};
 
-        prod_thres <= {1'b0, mag_sq_avg[31:1]} + {2'b0, mag_sq_avg[31:2]};
+        prod_thres <= ( threshold_scale? ({2'b0, mag_sq_avg[31:2]} + {3'b0, mag_sq_avg[31:3]}):({1'b0, mag_sq_avg[31:1]} + {2'b0, mag_sq_avg[31:2]}) );
         
         if (delay_prod_avg_mag_stb) begin
             if (delay_prod_avg_mag > prod_thres) begin
@@ -288,10 +265,12 @@ always @(posedge clock) begin
                     pos_count <= 0;
                     neg_count <= 0;
                     short_preamble_detected <= has_pos & has_neg;
-                    if(phase_out_neg[3] == 0)  // E.g. 131/16 = 8.1875 -> 8, -138/16 = -8.625 -> -9
-                        phase_offset <= {{4{phase_out_neg[15]}}, phase_out_neg[15:4]};
-                    else  // E.g. -131/16 = -8.1875 -> -8, 138/16 = 8.625 -> 9
-                        phase_offset <= ~phase_offset_neg + 1;
+                    if (has_pos && has_neg && demod_is_ongoing==0) begin // only update and lock phase_offset to new value when short_preamble_detected and not start demod yet
+                        if(phase_out_neg[3] == 0)  // E.g. 131/16 = 8.1875 -> 8, -138/16 = -8.625 -> -9
+                            phase_offset <= {{4{phase_out_neg[15]}}, phase_out_neg[15:4]};
+                        else  // E.g. -131/16 = -8.1875 -> -8, 138/16 = 8.625 -> 9
+                            phase_offset <= ~phase_offset_neg + 1;
+                    end
                 end else begin
                     plateau_count <= plateau_count + 1;
                     short_preamble_detected <= 0;

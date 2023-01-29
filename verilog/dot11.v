@@ -1,9 +1,17 @@
 `include "common_defs.v"
+`include "openofdm_rx_pre_def.v"
+
+`ifdef OPENOFDM_RX_ENABLE_DBG
+`define DEBUG_PREFIX (*mark_debug="true",DONT_TOUCH="TRUE"*)
+`else
+`define DEBUG_PREFIX
+`endif
 
 module dot11 (
     input clock,
     input enable,
     input reset,
+    input reset_without_watchdog,
 
     // setting registers
     //input set_stb,
@@ -11,17 +19,19 @@ module dot11 (
     //input [31:0] set_data,
     
     // add ports for register based inputs
-    input [10:0] power_thres,
+    input signed [10:0] power_thres,
     input [31:0] min_plateau,
+    input threshold_scale,
 
     // INPUT: RSSI
-    input [10:0] rssi_half_db,
+    input signed [10:0] rssi_half_db,
     // INPUT: I/Q sample
     input [31:0] sample_in,
     input sample_in_strobe,
     input soft_decoding,
     input wire force_ht_smoothing,
     input wire disable_all_smoothing,
+    input [3:0] fft_win_shift, 
 
     // OUTPUT: bytes and FCS status
     output reg demod_is_ongoing,
@@ -46,32 +56,32 @@ module dot11 (
     
     // decode status
     // (* mark_debug = "true", DONT_TOUCH = "TRUE" *) 
-    output reg [4:0] state,
-    output reg [3:0] status_code,
-    output state_changed,
-    output reg [31:0] state_history,
+    `DEBUG_PREFIX output reg [4:0] state,
+    `DEBUG_PREFIX output reg [4:0] status_code,
+    `DEBUG_PREFIX output state_changed,
+    `DEBUG_PREFIX output reg [31:0] state_history,
 
     // power trigger
-    output power_trigger,
+    `DEBUG_PREFIX output power_trigger,
 
     // sync short
-    output short_preamble_detected,
-    output [15:0] phase_offset,
+    `DEBUG_PREFIX output short_preamble_detected,
+    `DEBUG_PREFIX output [15:0] phase_offset,
 
     // sync long
-    output [31:0] sync_long_metric,
-    output sync_long_metric_stb,
-    output long_preamble_detected,
-    output [31:0] sync_long_out,
-    output sync_long_out_strobe,
-    output wire signed [31:0] phase_offset_taken,
-    output [2:0] sync_long_state,
+    `DEBUG_PREFIX output [31:0] sync_long_metric,
+    `DEBUG_PREFIX output sync_long_metric_stb,
+    `DEBUG_PREFIX output long_preamble_detected,
+    `DEBUG_PREFIX output [31:0] sync_long_out,
+    `DEBUG_PREFIX output sync_long_out_strobe,
+    `DEBUG_PREFIX output wire signed [31:0] phase_offset_taken,
+    `DEBUG_PREFIX output [2:0] sync_long_state,
 
     // equalizer
-    output [31:0] equalizer_out,
-    output equalizer_out_strobe,
-    output [3:0] equalizer_state,
-    output wire ofdm_symbol_eq_out_pulse,
+    `DEBUG_PREFIX output [31:0] equalizer_out,
+    `DEBUG_PREFIX output equalizer_out_strobe,
+    `DEBUG_PREFIX output [3:0] equalizer_state,
+    `DEBUG_PREFIX output wire ofdm_symbol_eq_out_pulse,
 
     // legacy signal info
     output reg legacy_sig_stb,
@@ -97,6 +107,10 @@ module dot11 (
     output [1:0] ht_num_ext,
     output reg ht_sig_crc_ok,
 
+    `DEBUG_PREFIX output [14:0] n_ofdm_sym,//max 20166 = (22+65535*8)/26 (max ht len 65535 in sig, min ndbps 26 for mcs0)
+    `DEBUG_PREFIX output [9:0]  n_bit_in_last_sym,//max ht ndbps 260 (ht mcs7)
+    `DEBUG_PREFIX output        phy_len_valid,
+
     // decoding pipeline
     output [5:0] demod_out,
     output [5:0] demod_soft_bits,
@@ -119,12 +133,15 @@ module dot11 (
 
 `include "common_params.v"
 
+wire [19:0] n_bit_in_last_sym_tmp;
+assign n_bit_in_last_sym = n_bit_in_last_sym_tmp[9:0];
+
 ////////////////////////////////////////////////////////////////////////////////
 // extra info output to ease side info and viterbi state monitor
 ////////////////////////////////////////////////////////////////////////////////
-reg  [3:0] equalizer_state_reg;
+`DEBUG_PREFIX reg  [3:0] equalizer_state_reg;
 
-assign ofdm_symbol_eq_out_pulse = (equalizer_state==4 && equalizer_state_reg==7);
+assign ofdm_symbol_eq_out_pulse = (equalizer_state==4 && equalizer_state_reg==8);
 
 always @(posedge clock) begin
     if (reset==1) begin
@@ -206,10 +223,10 @@ phase phase_inst (
 );
 ////////////////////////////////////////////////////////////////////////////////
 
-
 reg sync_short_reset;
 reg sync_long_reset;
-wire sync_short_enable = state == S_SYNC_SHORT;
+// wire sync_short_enable = state == S_SYNC_SHORT;
+wire sync_short_enable = 1;
 reg sync_long_enable;
 wire [15:0] num_ofdm_symbol;
 
@@ -236,7 +253,7 @@ reg [15:0] ofdm_in_i;
 reg [15:0] ofdm_in_q;
 
 reg do_descramble;
-reg [31:0] num_bits_to_decode;
+reg [19:0] num_bits_to_decode; //4bits + ht_len: num_bits_to_decode <= (22+(ht_len<<3));
 reg short_gi;
 
 reg [4:0] old_state;
@@ -254,7 +271,6 @@ assign legacy_sig_parity = signal_bits[17];
 assign legacy_sig_tail = signal_bits[23:18];
 assign legacy_sig_parity_ok = ~^signal_bits[17:0];
 
-
 // HT-SIG information
 reg [23:0] ht_sig1;
 reg [23:0] ht_sig2;
@@ -270,7 +286,6 @@ assign ht_stbc = ht_sig2[5:4];
 assign ht_fec_coding = ht_sig2[6];
 assign ht_sgi = ht_sig2[7];
 assign ht_num_ext = ht_sig2[9:8];
-
 
 wire ht_rsvd = ht_sig2[2];
 wire [7:0] crc = ht_sig2[17:10];
@@ -329,6 +344,8 @@ sync_short sync_short_inst (
     .enable(enable & sync_short_enable),
 
     .min_plateau(min_plateau),
+    .threshold_scale(threshold_scale),
+    
     .sample_in(sample_in),
     .sample_in_strobe(sample_in_strobe),
 
@@ -339,6 +356,7 @@ sync_short sync_short_inst (
     .phase_out(sync_short_phase_out),
     .phase_out_stb(sync_short_phase_out_stb),
 
+    .demod_is_ongoing(demod_is_ongoing),
     .short_preamble_detected(short_preamble_detected),
     .phase_offset(phase_offset)
 );
@@ -352,6 +370,7 @@ sync_long sync_long_inst (
     .sample_in_strobe(sample_in_strobe),
     .phase_offset(phase_offset),
     .short_gi(short_gi),
+    .fft_win_shift(fft_win_shift),
 
     .rot_addr(sync_long_rot_addr),
     .rot_data(sync_long_rot_data),
@@ -457,6 +476,20 @@ crc32 fcs_inst (
     .crc_out(pkt_fcs)
 );
 
+phy_len_calculation phy_len_calculation_inst(
+    .clock(clock),
+    .reset(reset_without_watchdog | long_preamble_detected),
+    .enable(),
+
+    .state(state),
+    .old_state(old_state),
+    .num_bits_to_decode(num_bits_to_decode),
+    .pkt_rate(pkt_rate),//bit [7] 1 means ht; 0 means non-ht
+    
+    .n_ofdm_sym(n_ofdm_sym),//max 20166 = (22+65535*8)/26
+    .n_bit_in_last_sym(n_bit_in_last_sym_tmp),//max ht ndbps 260
+    .phy_len_valid(phy_len_valid)
+);
 
 always @(posedge clock) begin
     if (reset) begin
@@ -529,6 +562,8 @@ always @(posedge clock) begin
 
         case(state)
             S_WAIT_POWER_TRIGGER: begin
+                sync_short_reset <= 0;
+
                 pkt_begin <= 0;
                 pkt_ht <= 0;
                 crc_reset <= 0;
@@ -547,19 +582,17 @@ always @(posedge clock) begin
                     `ifdef DEBUG_PRINT
                         $display("Power triggered.");
                     `endif
-                    sync_short_reset <= 1;
+                    // sync_short_reset <= 1;
                     state <= S_SYNC_SHORT;
                 end
             end
 
             S_SYNC_SHORT: begin
-                if (sync_short_reset) begin
-                    sync_short_reset <= 0;
-                end
 
                 if (~power_trigger) begin
                     // power level drops before finding STS
                     state <= S_WAIT_POWER_TRIGGER;
+                    sync_short_reset <= 1;
                 end
 
                 if (short_preamble_detected) begin
@@ -584,17 +617,19 @@ always @(posedge clock) begin
                 end
                 if (sample_count > 320) begin
                     state <= S_WAIT_POWER_TRIGGER;
+                    sync_short_reset <= 1;
                 end
 
                 if (~power_trigger) begin
                     state <= S_WAIT_POWER_TRIGGER;
+                    sync_short_reset <= 1;
                 end
 
                 if (long_preamble_detected) begin
                     demod_is_ongoing <= 1;
                     pkt_rate <= {1'b0, 3'b0, 4'b1011};
                     do_descramble <= 0;
-                    num_bits_to_decode <= 48;
+                    num_bits_to_decode <= 24;
 
                     ofdm_reset <= 1;
                     ofdm_enable <= 1;
@@ -605,10 +640,12 @@ always @(posedge clock) begin
                     byte_count <= 0;
                     byte_count_total <= 0;
                     state <= S_DECODE_SIGNAL;
+                    sync_short_reset <= 1;
                 end
             end
 
             S_DECODE_SIGNAL: begin
+                sync_short_reset <= 0;
                 ofdm_reset <= 0;
 
                 if (equalizer_reset) begin
@@ -634,7 +671,7 @@ always @(posedge clock) begin
                             "tail = %6b", legacy_sig_tail);
                     `endif
 
-                    num_bits_to_decode <= (22+(legacy_len<<3))<<1;
+                    num_bits_to_decode <= (22+(legacy_len<<3));
                     pkt_rate <= {1'b0, 3'b0, legacy_rate};
                     pkt_len <= legacy_len;
                     pkt_len_total <= legacy_len+3;
@@ -673,7 +710,6 @@ always @(posedge clock) begin
                     end else begin
                         //num_bits_to_decode <= (legacy_len+3)<<4;
                         do_descramble <= 1;
-                        ofdm_reset <= 1;
                         pkt_header_valid <= 1;
                         pkt_header_valid_strobe <= 1;
                         pkt_begin <= 1;
@@ -691,7 +727,12 @@ always @(posedge clock) begin
 
             S_DETECT_HT: begin
                 legacy_sig_stb <= 0;
-                ofdm_reset <= 1;
+                ofdm_reset <= 0;
+                
+                ofdm_in_stb <= eq_out_stb_delayed;
+                // rotate clockwise by 90 degree
+                ofdm_in_i <= eq_out_q_delayed;
+                ofdm_in_q <= ~eq_out_i_delayed+1;
 
                 if (equalizer_out_strobe) begin
                     abs_eq_i <= eq_out_i[15]? ~eq_out_i+1: eq_out_i;
@@ -705,7 +746,7 @@ always @(posedge clock) begin
 
                 if (rot_eq_count >= 4) begin
                     // HT-SIG detected
-                    num_bits_to_decode <= 96;
+                    num_bits_to_decode <= 48;
                     do_descramble <= 0;
                     state <= S_HT_SIGNAL;
                 end else if (normal_eq_count > 4) begin
@@ -753,7 +794,7 @@ always @(posedge clock) begin
                             "tail = %06b", ht_sig_tail);
                     `endif
 
-                    num_bits_to_decode <= (22+(ht_len<<3))<<1;
+                    num_bits_to_decode <= (22+(ht_len<<3));
                     pkt_rate <= {1'b1, ht_mcs};
                     pkt_len_rem <= ht_len;
                     pkt_len <= ht_len;

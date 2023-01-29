@@ -11,7 +11,7 @@ module ofdm_decoder
     // decode instructions
     input [7:0] rate,
     input do_descramble,
-    input [31:0] num_bits_to_decode,
+    input [19:0] num_bits_to_decode, //4bits + ht_len: num_bits_to_decode <= (22+(ht_len<<3));
 
     output [5:0] demod_out,
     output [5:0] demod_soft_bits,
@@ -55,7 +55,7 @@ reg [3:0] skip_bit;
 reg bit_in;
 reg bit_in_stb;
 
-reg [31:0] deinter_out_count;
+reg [19:0] deinter_out_count; // bitwidth same as num_bits_to_decode
 //reg flush;
 
 assign deinterleave_erase_out = {erase,deinterleave_out};
@@ -159,7 +159,7 @@ always @(posedge clock) begin
         deinter_out_count <= 0;
     end else if (enable) begin
         if (deinterleave_out_strobe) begin
-            deinter_out_count <= deinter_out_count + 2;
+            deinter_out_count <= deinter_out_count + 1;
         end //else begin
             // wait for finishing deinterleaving current symbol
             // only do flush for non-DATA bits, such as SIG and HT-SIG, which
